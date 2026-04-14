@@ -1,0 +1,608 @@
+import React from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+type Props = {
+  onPlayAlone: () => void;
+  onSettings: () => void;
+};
+
+export default function HomeScreen({ onPlayAlone, onSettings }: Props) {
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.topIcon}>
+            <Text style={styles.topIconText}>⚡</Text>
+          </View>
+          <View>
+            <View style={styles.readyRow}>
+              <Text style={styles.readyStar}>✨</Text>
+              <Text style={styles.readyText}>READY FOR A CHALLENGE?</Text>
+            </View>
+            <Text style={styles.pageTitle}>Playground</Text>
+          </View>
+
+        </View>
+
+        {/* Cards Row */}
+        <View style={styles.cardsRow}>
+          {/* Play Alone */}
+          <Pressable
+            onPress={onPlayAlone}
+            style={({ pressed }) => [
+              styles.cardPlayAlone,
+              { opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            <View style={styles.cardPlayDecor1} />
+            <View style={styles.cardPlayDecor2} />
+            <View style={styles.cardIcon}>
+              <Text style={styles.cardIconEmoji}>▶</Text>
+            </View>
+            <Text style={styles.cardPlayTitle}>Play Alone</Text>
+            <Text style={styles.cardPlayDesc}>
+              Challenge yourself across 50+ topics and climb the rank.
+            </Text>
+          </Pressable>
+
+          {/* With Friends */}
+          <View style={styles.cardFriends}>
+            <View style={styles.friendsIcon}>
+              <Text style={styles.friendsIconEmoji}>👥</Text>
+            </View>
+            <Text style={styles.cardFriendsTitle}>With Friends</Text>
+            <Text style={styles.cardFriendsDesc}>
+              Invite friends or join a room via QR code.
+            </Text>
+            <View style={styles.qrActions}>
+              <View style={styles.qrAction}>
+                <Text style={styles.qrEmoji}>◻</Text>
+                <Text style={styles.qrText}>Generate QR</Text>
+              </View>
+              <View style={styles.qrAction}>
+                <Text style={styles.qrEmoji}>⊞</Text>
+                <Text style={styles.qrText}>Scan QR</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <View style={styles.quickAction}>
+            <View style={styles.quickActionIcon}>
+              <Text style={styles.quickActionEmoji}>👤+</Text>
+            </View>
+            <Text style={styles.quickActionLabel}>Invite Friend</Text>
+          </View>
+          <View style={styles.quickAction}>
+            <View style={styles.quickActionIcon}>
+              <Text style={styles.quickActionEmoji}>📝</Text>
+            </View>
+            <Text style={styles.quickActionLabel}>New Topic</Text>
+          </View>
+          <Pressable style={styles.quickAction} onPress={onSettings}>
+            <View style={styles.quickActionIcon}>
+              <Text style={styles.quickActionEmoji}>⚙</Text>
+            </View>
+            <Text style={styles.quickActionLabel}>Settings</Text>
+          </Pressable>
+        </View>
+
+        {/* Recent Games */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionClock}>🕐</Text>
+            <Text style={styles.sectionTitle}>Recent Games</Text>
+          </View>
+          <Text style={styles.seeAll}>See all</Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.gamesScroll}
+        >
+          <View style={styles.gameCard}>
+            <View style={[styles.gameAvatar, styles.avatarOrange]}>
+
+            </View>
+            <Text style={styles.gameSubject}>HISTORY</Text>
+            <Text style={styles.gamePlayer}>Sarah J.</Text>
+            <Text style={[styles.gameScore, { color: '#FFA726' }]}>18/20</Text>
+            <View style={styles.gameBar}>
+              <View style={[styles.gameBarFill, { width: '90%', backgroundColor: '#FFA726' }]} />
+            </View>
+          </View>
+
+          <View style={styles.gameCard}>
+            <View style={[styles.gameAvatar, styles.avatarGreen]}>
+
+            </View>
+            <Text style={styles.gameSubject}>SCIENCE</Text>
+            <Text style={styles.gamePlayer}>Mike Ross</Text>
+            <Text style={[styles.gameScore, { color: '#EF5350' }]}>12/20</Text>
+            <View style={styles.gameBar}>
+              <View style={[styles.gameBarFill, { width: '60%', backgroundColor: '#EF5350' }]} />
+            </View>
+          </View>
+
+          <View style={styles.gameCard}>
+            <View style={[styles.gameAvatar, styles.avatarBlue]}>
+
+            </View>
+            <Text style={styles.gameSubject}>MATH</Text>
+            <Text style={styles.gamePlayer}>Alex K.</Text>
+            <Text style={[styles.gameScore, { color: '#42A5F5' }]}>16/20</Text>
+            <View style={styles.gameBar}>
+              <View style={[styles.gameBarFill, { width: '80%', backgroundColor: '#42A5F5' }]} />
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Stats Card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsHeader}>
+            <View style={styles.statsLeft}>
+              <View style={styles.statsIconBox}>
+                <Text style={styles.statsIconEmoji}>📊</Text>
+              </View>
+              <View>
+                <Text style={styles.statsLabel}>Your Stats</Text>
+                <Text style={styles.statsSubLabel}>WEEKLY PROGRESS</Text>
+              </View>
+            </View>
+            <View style={styles.statsRight}>
+              <Text style={styles.statsBigNumber}>78<Text style={styles.statsPercent}>%</Text></Text>
+              <Text style={styles.statsChange}>+5% this week</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statItemLabel}>TOTAL GAMES</Text>
+              <Text style={styles.statItemValue}>124</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statItemLabel}>AVERAGE SCORE</Text>
+              <Text style={styles.statItemValue}>840</Text>
+            </View>
+          </View>
+
+          <Pressable style={styles.viewHistory}>
+            <Text style={styles.viewHistoryText}>View Full History ›</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      {/* Bottom Nav */}
+      <View style={styles.bottomNav}>
+        <View style={[styles.navItem, styles.navItemActive]}>
+          <View style={styles.navDot} />
+          <Text style={styles.navEmojiActive}>🏠</Text>
+          <Text style={styles.navLabelActive}>Home</Text>
+        </View>
+        <View style={styles.navItem}>
+          <Text style={styles.navEmoji}>📋</Text>
+          <Text style={styles.navLabel}>Dashboard</Text>
+        </View>
+        <View style={styles.navItem}>
+          <Text style={styles.navEmoji}>⭐</Text>
+          <Text style={styles.navLabel}>Invite</Text>
+        </View>
+        <Pressable style={styles.navItem} onPress={onSettings}>
+          <Text style={styles.navEmoji}>⚙</Text>
+          <Text style={styles.navLabel}>Settings</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fafafa',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 100,
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  topIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  topIconText: { fontSize: 18 },
+  readyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  readyStar: { fontSize: 12 },
+  readyText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F5A623',
+    letterSpacing: 1.5,
+  },
+  pageTitle: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    letterSpacing: -0.5,
+  },
+  logoBox: {
+    marginLeft: 'auto',
+    backgroundColor: '#FF8C00',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  logoText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#fff',
+  },
+
+  // Cards Row
+  cardsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  cardPlayAlone: {
+    flex: 1,
+    backgroundColor: '#FF8C00',
+    borderRadius: 20,
+    padding: 18,
+    minHeight: 160,
+    overflow: 'hidden',
+  },
+  cardPlayDecor1: {
+    position: 'absolute',
+    bottom: -20,
+    right: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  cardPlayDecor2: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  cardIcon: {
+    width: 36,
+    height: 36,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  cardIconEmoji: { fontSize: 16, color: '#fff' },
+  cardPlayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 6,
+  },
+  cardPlayDesc: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 14,
+  },
+
+  cardFriends: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: '#eee',
+    minHeight: 160,
+  },
+  friendsIcon: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  friendsIconEmoji: { fontSize: 16 },
+  cardFriendsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 6,
+  },
+  cardFriendsDesc: {
+    fontSize: 10,
+    color: '#888',
+    lineHeight: 14,
+    marginBottom: 10,
+  },
+  qrActions: { gap: 6 },
+  qrAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  qrEmoji: { fontSize: 12, color: '#555' },
+  qrText: { fontSize: 11, fontWeight: '500', color: '#555' },
+
+  // Quick Actions
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 32,
+    marginBottom: 30,
+  },
+  quickAction: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#e8e8e8',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickActionEmoji: { fontSize: 18 },
+  quickActionLabel: {
+    fontSize: 10,
+    color: '#999',
+    fontWeight: '500',
+  },
+
+  // Section Header
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sectionClock: { fontSize: 16 },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  seeAll: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#F5A623',
+  },
+
+  // Recent Games
+  gamesScroll: {
+    gap: 10,
+    paddingBottom: 4,
+    marginBottom: 24,
+  },
+  gameCard: {
+    minWidth: 120,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#f0f0f0',
+    borderRadius: 18,
+    padding: 16,
+    alignItems: 'center',
+  },
+  gameAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  avatarOrange: { backgroundColor: '#FFF3E0' },
+  avatarGreen: { backgroundColor: '#E8F5E9' },
+  avatarBlue: { backgroundColor: '#E3F2FD' },
+  gameAvatarEmoji: { fontSize: 20 },
+  gameSubject: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#999',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  gamePlayer: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  gameScore: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  gameBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 2,
+  },
+  gameBarFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+
+  // Stats Card
+  statsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: '#f0f0f0',
+    marginBottom: 20,
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  statsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statsIconBox: {
+    width: 42,
+    height: 42,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsIconEmoji: { fontSize: 20 },
+  statsLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  statsSubLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#bbb',
+    letterSpacing: 0.5,
+  },
+  statsRight: {
+    alignItems: 'flex-end',
+  },
+  statsBigNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1a1a1a',
+  },
+  statsPercent: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#999',
+  },
+  statsChange: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4CAF50',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  statItem: {
+    flex: 1,
+    backgroundColor: '#fafafa',
+    borderRadius: 14,
+    padding: 14,
+  },
+  statItemLabel: {
+    fontSize: 10,
+    color: '#bbb',
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  statItemValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1a1a1a',
+  },
+  viewHistory: {
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  viewHistoryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F5A623',
+  },
+
+  // Bottom Nav
+  bottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  navItemActive: {
+    position: 'relative',
+  },
+  navDot: {
+    position: 'absolute',
+    top: -10,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#F5A623',
+  },
+  navEmoji: { fontSize: 20, opacity: 0.35 },
+  navEmojiActive: { fontSize: 20 },
+  navLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#ccc',
+  },
+  navLabelActive: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#F5A623',
+  },
+});
