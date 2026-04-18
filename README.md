@@ -39,7 +39,7 @@
 
 **Critères d'acceptation :**
 - ✅ 6 catégories sont affichées sous forme de grille 2×3 avec des icônes emoji :
-  - 🎭 **Entertainment** (Divertissement)
+  - 🎬 **Entertainment** (Divertissement)
   - ⚽ **Sports**
   - 🧠 **General Knowledge** (Culture Générale)
   - 🔬 **Science**

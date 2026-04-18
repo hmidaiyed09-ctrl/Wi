@@ -27,7 +27,7 @@ type Props = {
 };
 
 const CATEGORY_EMOJI_MAP: Record<string, string> = {
-  entertainment: '🎭',
+  entertainment: '🎬',
   sports: '⚽',
   general_knowledge: '🧠',
   science: '🔬',

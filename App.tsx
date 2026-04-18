@@ -49,7 +49,7 @@ type QuizHistoryEntry = {
 };
 
 const CATEGORY_OPTIONS: { key: QuizCategory; label: string; emoji: string }[] = [
-  { key: 'entertainment', label: 'Entertainment', emoji: '🎭' },
+  { key: 'entertainment', label: 'Entertainment', emoji: '🎬' },
   { key: 'sports', label: 'Sports', emoji: '⚽' },
   { key: 'general_knowledge', label: 'General Knowledge', emoji: '🧠' },
   { key: 'science', label: 'Science', emoji: '🔬' },
@@ -58,7 +58,7 @@ const CATEGORY_OPTIONS: { key: QuizCategory; label: string; emoji: string }[] = 
 ];
 
 const CATEGORY_EMOJI_MAP: Record<string, string> = {
-  entertainment: '🎭',
+  entertainment: '🎬',
   sports: '⚽',
   general_knowledge: '🧠',
   science: '🔬',
