@@ -1,97 +1,217 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Wi — Application de Quiz Intelligente
 
-# Getting Started
+**Wi** est une application mobile et web de quiz alimentée par l'intelligence artificielle. Elle permet aux utilisateurs de tester leurs connaissances sur différentes catégories grâce à des questions générées dynamiquement par un modèle IA.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+---
 
-## Step 1: Start Metro
+## 📋 Sprint Réalisé
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### Sprint 1 — Refonte Complète de l'Interface & Système de Catégories
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+**Durée :** 1 sprint  
+**Objectif :** Transformer l'expérience utilisateur du mode solo, mettre en place un système de catégories intelligent, centraliser les paramètres, et offrir un tableau de bord avec des statistiques réelles.
 
-```sh
-# Using npm
-npm start
+---
 
-# OR using Yarn
-yarn start
+## 📖 User Stories
+
+### US-1 : Refonte du Builder en "Game Room" (Mode Solo)
+
+**En tant qu'** utilisateur,  
+**je veux** accéder à un écran de configuration de quiz avec un design immersif de type "salle de jeu",  
+**afin de** me sentir dans une ambiance de jeu captivante avant de lancer mon quiz.
+
+**Critères d'acceptation :**
+- ✅ L'écran de configuration (builder) utilise un fond sombre (`#1B1D2A`) avec des cartes et éléments lumineux
+- ✅ Le titre affiché est "Game Room" avec un sous-titre "Set up your quiz challenge"
+- ✅ Les boutons de sélection du nombre de questions sont des cercles avec un effet de lueur orange lorsqu'ils sont actifs
+- ✅ Les boutons de difficulté (EASY, MEDIUM, HARD) sont affichés en mode pilules horizontales sur fond sombre
+- ✅ Le bouton "Start Quiz" est en orange vif (`#FF8C00`) avec une ombre portée lumineuse
+- ✅ Le bouton "← Back" permet de revenir à l'écran d'accueil
+
+---
+
+### US-2 : Système de Catégories Prédéfinies et Personnalisées
+
+**En tant qu'** utilisateur,  
+**je veux** choisir une catégorie de quiz parmi des catégories prédéfinies ou saisir un sujet personnalisé,  
+**afin de** jouer sur des thèmes précis sans devoir toujours rédiger un sujet manuellement.
+
+**Critères d'acceptation :**
+- ✅ 6 catégories sont affichées sous forme de grille 2×3 avec des icônes emoji :
+  - 🎭 **Entertainment** (Divertissement)
+  - ⚽ **Sports**
+  - 🧠 **General Knowledge** (Culture Générale)
+  - 🔬 **Science**
+  - 📜 **History** (Histoire)
+  - ✏️ **Custom** (Personnalisé)
+- ✅ La catégorie sélectionnée est mise en surbrillance (fond orange)
+- ✅ Le champ de saisie "Main topic or formula" n'apparaît **que** lorsque la catégorie "Custom" est sélectionnée
+- ✅ Pour les catégories prédéfinies, le sujet est automatiquement défini (ex : "Entertainment, movies, music, TV shows, celebrities, pop culture")
+
+---
+
+### US-3 : Suppression du Choix de Mode de Quiz
+
+**En tant qu'** utilisateur,  
+**je veux** ne plus être confronté au choix du "Quiz Mode" (General / Key Facts / Custom),  
+**afin d'** avoir une interface simplifiée et moins chargée.
+
+**Critères d'acceptation :**
+- ✅ Le sélecteur "Choose quiz mode" a été entièrement supprimé de l'écran builder
+- ✅ Le type `QuizMode` et la constante `QUIZ_MODE_LABELS` ont été supprimés du code
+- ✅ Le paramètre `quizMode` a été retiré de la fonction de génération de quiz
+- ✅ L'affichage "Mode:" a été supprimé de l'écran de quiz actif
+
+---
+
+### US-4 : Déplacement du Choix de Langue vers les Paramètres
+
+**En tant qu'** utilisateur,  
+**je veux** configurer la langue du quiz (Anglais / Arabe) depuis la page Paramètres,  
+**afin de** ne pas avoir à la choisir à chaque création de quiz.
+
+**Critères d'acceptation :**
+- ✅ Le sélecteur de langue a été retiré de l'écran builder
+- ✅ La page **Settings** affiche deux boutons de langue avec drapeaux :
+  - 🇬🇧 **English** (sélectionné par défaut)
+  - 🇸🇦 **Arabic**
+- ✅ Le bouton actif est en orange (`#FF8C00`), l'autre en blanc
+- ✅ La langue sélectionnée est un état global utilisé automatiquement lors de la génération de quiz
+- ✅ Le choix persiste pendant toute la session utilisateur
+
+---
+
+### US-5 : Réponse IA en JSON Pur avec Catégorisation
+
+**En tant que** système,  
+**je veux** que l'IA retourne exclusivement du JSON valide contenant deux objets : `categories` et `questions`,  
+**afin de** pouvoir catégoriser automatiquement chaque quiz et suivre les statistiques par catégorie.
+
+**Critères d'acceptation :**
+- ✅ Le prompt système précise : "Output ONLY valid JSON with no markdown, no greetings, no extra text"
+- ✅ Le format de réponse attendu est :
+  ```json
+  {
+    "categories": ["entertainment"],
+    "questions": [
+      {
+        "question": "...",
+        "options": ["...", "...", "...", "..."],
+        "correctAnswer": "..."
+      }
+    ]
+  }
+  ```
+- ✅ Le champ `categories` est un tableau de chaînes identifiant les catégories du quiz
+- ✅ Le parsing extrait et stocke les catégories retournées par l'IA
+- ✅ Pour les catégories prédéfinies, la catégorie sélectionnée est utilisée ; pour "Custom", la catégorie IA est utilisée
+
+---
+
+### US-6 : Tableau de Bord avec Statistiques Réelles
+
+**En tant qu'** utilisateur,  
+**je veux** voir mes statistiques de jeu réelles sur le tableau de bord,  
+**afin de** suivre ma progression et mes performances par catégorie.
+
+**Critères d'acceptation :**
+- ✅ **3 cartes de résumé** en haut du dashboard :
+  - 🎮 **Total Quizzes** — nombre total de quiz joués
+  - 🏆 **#1 Finishes** — nombre de quiz avec score parfait (100%)
+  - 📈 **Win Rate** — pourcentage de scores parfaits sur le total
+- ✅ **Section "Performance by Category"** :
+  - Pour chaque catégorie jouée, affichage d'une ligne avec :
+    - Emoji et nom de la catégorie (formaté avec majuscule)
+    - Nombre de quiz joués et nombre de scores parfaits
+    - Taux de réussite (% de scores parfaits) avec barre de progression colorée :
+      - 🟢 Vert (`#4CAF50`) si ≥ 70%
+      - 🟠 Orange (`#FF8C00`) si ≥ 40%
+      - 🔴 Rouge (`#E53935`) si < 40%
+  - **Toutes** les catégories apparaissent, y compris celles catégorisées par l'IA comme "other"
+- ✅ **Section "Recent Activity"** :
+  - Les 5 derniers quiz joués avec catégorie, date, score, et badge 🏆 si parfait
+- ✅ Si aucun quiz n'a été joué, un état vide s'affiche : "No games yet — Play a quiz to see your category stats here"
+
+---
+
+### US-7 : Page d'Accueil avec Données Dynamiques
+
+**En tant qu'** utilisateur,  
+**je veux** que la page d'accueil affiche mes vrais résultats récents et mes vraies statistiques,  
+**afin de** voir ma progression dès l'ouverture de l'application.
+
+**Critères d'acceptation :**
+- ✅ La section "Recent Games" affiche les 5 derniers quiz joués avec :
+  - Emoji de catégorie, nom de catégorie, score (ex: 8/10), barre de progression colorée
+  - Badge 🏆 pour les scores parfaits
+- ✅ Si aucun quiz n'a été joué, un message s'affiche : "🎮 Play a quiz to see your history here!"
+- ✅ La carte "Your Stats" affiche :
+  - Le taux de réussite global (win rate en %)
+  - Le nombre total de parties jouées
+  - Le nombre de scores parfaits
+- ✅ Le lien "View Full History" et "See all" redirigent vers le tab Dashboard
+- ✅ Les données fictives codées en dur (Sarah J., Mike Ross, Alex K., 124 games, 840 score) ont été **entièrement supprimées**
+
+---
+
+## 🏗️ Architecture Technique
+
+### Fichiers Modifiés
+
+| Fichier | Modifications |
+|---------|---------------|
+| `App.tsx` | Refonte complète : nouveau builder "Game Room", système de catégories, prompt IA mis à jour, historique de quiz, suppression du mode quiz et déplacement de la langue |
+| `components/HomeScreen.tsx` | Remplacement des données fictives par des données dynamiques depuis `quizHistory`, ajout des états vides |
+| `components/DashboardScreen.tsx` | Réécriture complète : statistiques réelles par catégorie, taux de réussite, activité récente |
+| `components/SettingsScreen.tsx` | Ajout du sélecteur de langue interactif (Anglais/Arabe) avec drapeaux |
+
+### Types Ajoutés
+
+```typescript
+type QuizCategory = 'entertainment' | 'sports' | 'general_knowledge' | 'science' | 'history' | 'custom';
+
+type QuizHistoryEntry = {
+  category: string;      // Catégorie du quiz (prédéfinie ou IA)
+  score: number;         // Score obtenu
+  total: number;         // Nombre total de questions
+  date: string;          // Date ISO du quiz
+  isFirst: boolean;      // true si score parfait (score === total)
+};
 ```
 
-## Step 2: Build and run your app
+### Types Supprimés
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+```typescript
+type QuizMode = 'GENERAL' | 'KEY_FACTS' | 'CUSTOM';  // Supprimé
+const QUIZ_MODE_LABELS: Record<QuizMode, string>;      // Supprimé
+```
 
-### Android
+---
 
+## 🚀 Lancement
+
+### Web
 ```sh
-# Using npm
+npx webpack serve --mode development
+```
+
+### Mobile (Android)
+```sh
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
+### Mobile (iOS)
 ```sh
 bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+---
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## 📦 Technologies
 
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- **React Native** — Framework mobile cross-platform
+- **React Native Web** — Support web via Webpack
+- **TypeScript** — Typage statique
+- **Pollinations AI API** — Génération de questions par IA (modèle `perplexity-fast`)
