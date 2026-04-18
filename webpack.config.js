@@ -3,6 +3,9 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   mode: 'development',
+  cache: {
+    type: 'filesystem',
+  },
   entry: path.resolve(__dirname, 'index.web.js'),
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -22,6 +25,7 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
+            cacheDirectory: true,
             presets: ['@react-native/babel-preset'],
             plugins: ['react-native-web'],
           },

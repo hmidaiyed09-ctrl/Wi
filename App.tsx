@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,18 +10,19 @@ import {
 } from 'react-native';
 import LoginScreen from './components/LoginScreen';
 import SignUpScreen from './components/SignUpScreen';
+import HomeScreen from './components/HomeScreen';
+import DashboardScreen from './components/DashboardScreen';
+import SettingsScreen from './components/SettingsScreen';
 
-const CEREBRAS_API_KEY = 'csk_5dvtx3m46x2c8yyyh9fym62jx8yr3vhxk3rrmmwjrjfmc53d';
-const CEREBRAS_MODEL = 'gpt-oss-120b';
-const OPENAI_COMPATIBLE_API_KEY = 'PASTE_YOUR_OPENAI_COMPATIBLE_API_KEY_HERE';
-const OPENAI_COMPATIBLE_BASE_URL = 'https://your-openai-compatible-host/v1';
-const OPENAI_COMPATIBLE_MODEL = 'PUT_YOUR_OPENAI_COMPATIBLE_MODEL_HERE';
+const API_BASE_URL = 'https://gen.pollinations.ai/v1';
+const API_KEY = 'dummy';
+const API_MODEL = 'perplexity-fast';
 
 type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 type QuizLanguage = 'ARABIC' | 'ENGLISH';
 type QuizMode = 'GENERAL' | 'KEY_FACTS' | 'CUSTOM';
-type Provider = 'CEREBRAS' | 'OPENAI_COMPATIBLE';
-type Screen = 'welcome' | 'login' | 'signup' | 'home' | 'generating' | 'quiz' | 'result';
+type Tab = 'home' | 'dashboard' | 'settings';
+type Screen = 'welcome' | 'login' | 'signup' | 'home' | 'builder' | 'generating' | 'quiz' | 'result';
 
 type QuizQuestion = {
   id: string;
@@ -39,11 +39,6 @@ type QuizPayload = {
   }>;
 };
 
-const PROVIDER_LABELS: Record<Provider, string> = {
-  CEREBRAS: 'Cerebras',
-  OPENAI_COMPATIBLE: 'OpenAI Compatible',
-};
-
 const QUIZ_MODE_LABELS: Record<QuizMode, string> = {
   GENERAL: 'General',
   KEY_FACTS: 'Key Facts',
@@ -51,28 +46,17 @@ const QUIZ_MODE_LABELS: Record<QuizMode, string> = {
 };
 
 export default function App() {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>('welcome');
+  const [activeTab, setActiveTab] = useState<Tab>('home');
   const [numques, setNumQues] = useState(10);
   const [formula, setFormula] = useState('');
   const [customInstructions, setCustomInstructions] = useState('');
   const difficulties: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
   const languages: QuizLanguage[] = ['ARABIC', 'ENGLISH'];
   const quizModes: QuizMode[] = ['GENERAL', 'KEY_FACTS', 'CUSTOM'];
-  const providers: Provider[] = ['CEREBRAS', 'OPENAI_COMPATIBLE'];
   const [selectedDiff, setDiff] = useState<Difficulty>('EASY');
   const [selectedLanguage, setSelectedLanguage] = useState<QuizLanguage>('ARABIC');
   const [selectedQuizMode, setSelectedQuizMode] = useState<QuizMode>('GENERAL');
-  const [selectedProvider, setSelectedProvider] = useState<Provider>('CEREBRAS');
-  const [openAiCompatibleBaseUrl, setOpenAiCompatibleBaseUrl] = useState(
-    OPENAI_COMPATIBLE_BASE_URL,
-  );
-  const [openAiCompatibleModel, setOpenAiCompatibleModel] = useState(
-    OPENAI_COMPATIBLE_MODEL,
-  );
-  const [openAiCompatibleApiKey, setOpenAiCompatibleApiKey] = useState(
-    OPENAI_COMPATIBLE_API_KEY,
-  );
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [builderError, setBuilderError] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -103,7 +87,6 @@ export default function App() {
     difficulty: Difficulty,
     language: QuizLanguage,
     quizMode: QuizMode,
-    provider: Provider,
   ): Promise<QuizQuestion[]> => {
     const requestedQuestionCount = totalQuestions + 4;
 
@@ -154,35 +137,9 @@ export default function App() {
       return true;
     };
 
-    const providerBaseUrl =
-      provider === 'CEREBRAS'
-        ? 'https://api.cerebras.ai/v1'
-        : openAiCompatibleBaseUrl.trim().replace(/\/$/, '');
-    const providerModel =
-      provider === 'CEREBRAS' ? CEREBRAS_MODEL : openAiCompatibleModel.trim();
-    const providerApiKey =
-      provider === 'CEREBRAS'
-        ? CEREBRAS_API_KEY.trim()
-        : openAiCompatibleApiKey.trim();
-
-    if (
-      provider === 'OPENAI_COMPATIBLE' &&
-      (!providerApiKey ||
-        providerApiKey.includes('PASTE_YOUR_OPENAI_COMPATIBLE_API_KEY_HERE') ||
-        !providerBaseUrl ||
-        providerBaseUrl.includes('your-openai-compatible-host') ||
-        !providerModel ||
-        providerModel.includes('PUT_YOUR_OPENAI_COMPATIBLE_MODEL_HERE'))
-    ) {
-      throw new Error('MISSING_PROVIDER_CONFIG');
-    }
-
-    if (
-      provider === 'CEREBRAS' &&
-      (!providerApiKey || providerApiKey.includes('PASTE_YOUR_CEREBRAS_API_KEY_HERE'))
-    ) {
-      throw new Error('MISSING_API_KEY');
-    }
+    const providerBaseUrl = API_BASE_URL;
+    const providerModel = API_MODEL;
+    const providerApiKey = API_KEY;
 
     const prompt = [
       `Create ${requestedQuestionCount} multiple-choice quiz questions based on the provided topic or formula.`,
@@ -235,7 +192,7 @@ export default function App() {
 
     if (!response.ok) {
       const details = await response.text();
-      throw new Error(`${provider}_HTTP_${response.status}: ${details.slice(0, 200)}`);
+      throw new Error(`API_HTTP_${response.status}: ${details.slice(0, 200)}`);
     }
 
     const result = await response.json();
@@ -325,7 +282,6 @@ export default function App() {
         selectedDiff,
         selectedLanguage,
         selectedQuizMode,
-        selectedProvider,
       );
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
@@ -335,18 +291,7 @@ export default function App() {
       setScreen('quiz');
     } catch (error) {
       setScreen('home');
-      if (error instanceof Error && error.message.startsWith('MISSING_API_KEY')) {
-        setBuilderError(
-          'Missing API key. Set CEREBRAS_API_KEY at the top of App.tsx, then try again.',
-        );
-      } else if (
-        error instanceof Error &&
-        error.message.startsWith('MISSING_PROVIDER_CONFIG')
-      ) {
-        setBuilderError(
-          'Configure the OpenAI-compatible provider constants at the top of App.tsx first.',
-        );
-      } else if (
+      if (
         error instanceof Error &&
         error.message.startsWith('LOW_QUALITY_QUIZ')
       ) {
@@ -380,10 +325,17 @@ export default function App() {
     setScreen('result');
   };
 
+  const handleSignOut = () => {
+    setScreen('welcome');
+    setActiveTab('home');
+    resetBuilder();
+    setQuiz([]);
+  };
+
   if (screen === 'login') {
     return (
       <LoginScreen
-        onLogin={() => setScreen('home')}
+        onLogin={() => { setScreen('home'); setActiveTab('home'); }}
         onGoToSignUp={() => setScreen('signup')}
       />
     );
@@ -392,7 +344,7 @@ export default function App() {
   if (screen === 'signup') {
     return (
       <SignUpScreen
-        onSignUp={() => setScreen('home')}
+        onSignUp={() => { setScreen('home'); setActiveTab('home'); }}
         onGoToLogin={() => setScreen('login')}
       />
     );
@@ -601,259 +553,158 @@ export default function App() {
     );
   }
 
-  // home — quiz builder (previously the modal content)
-  return (
-    <View style={styles.homeContainer}>
-      <ScrollView contentContainerStyle={styles.homeContent}>
-        <Text style={styles.homeTitle}>Create a Quiz</Text>
-
-        <Text style={styles.sectionHeader}>Main topic or formula</Text>
-        <TextInput
-          style={styles.topic_box}
-          value={formula}
-          onChangeText={(text) => {
-            setFormula(text);
-            if (builderError) {
-              setBuilderError('');
-            }
-          }}
-          placeholder="Ex: world war, algebra, biology, a^2 + b^2 = c^2"
-          placeholderTextColor="#999"
-          multiline
-          numberOfLines={4}
-        />
-        <Text style={styles.topicHint}>
-          The AI will use this topic or formula to build related questions.
-        </Text>
-
-        {selectedQuizMode === 'CUSTOM' ? (
-          <>
-            <Text style={styles.sectionHeader}>Custom instructions</Text>
-            <TextInput
-              style={styles.customBox}
-              value={customInstructions}
-              onChangeText={setCustomInstructions}
-              placeholder="Ex: focus on battles, leaders, alliances, and causes. Avoid vocabulary questions."
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={4}
-            />
-            <Text style={styles.topicHint}>
-              This extra box appears only for Custom mode.
-            </Text>
-          </>
-        ) : null}
-
-        {builderError ? (
-          <Text style={styles.errorText}>{builderError}</Text>
-        ) : null}
-
-        <Text style={styles.sectionHeader}>Number of questions</Text>
-        <View style={styles.rowEven}>
-          <Pressable
-            onPress={() => setNumQues(5)}
-            style={numques === 5 ? styles.numQuesActive : styles.numQues}
-          >
-            <Text style={numques === 5 ? styles.text_ques_Active : styles.text_ques}>5</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setNumQues(10)}
-            style={numques === 10 ? styles.numQuesActive : styles.numQues}
-          >
-            <Text style={numques === 10 ? styles.text_ques_Active : styles.text_ques}>10</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.rowEven}>
-          <Pressable
-            onPress={() => setNumQues(15)}
-            style={numques === 15 ? styles.numQuesActive : styles.numQues}
-          >
-            <Text style={numques === 15 ? styles.text_ques_Active : styles.text_ques}>15</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setNumQues(20)}
-            style={numques === 20 ? styles.numQuesActive : styles.numQues}
-          >
-            <Text style={numques === 20 ? styles.text_ques_Active : styles.text_ques}>20</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.sectionHeader}>Choose your difficulty</Text>
-        <View style={styles.difficultyBox}>
-          {difficulties.map((item) => (
-            <Pressable
-              key={item}
-              onPress={() => {
-                setDiff(item);
-                if (builderError) {
-                  setBuilderError('');
-                }
-              }}
-              style={[styles.diffItem, selectedDiff === item && styles.diffItemActive]}
-            >
-              <Text style={styles.diffText}>{item}</Text>
+  // builder — quiz configuration
+  if (screen === 'builder') {
+    return (
+      <View style={styles.homeContainer}>
+        <ScrollView contentContainerStyle={styles.homeContent}>
+          <View style={styles.builderHeader}>
+            <Pressable onPress={() => setScreen('home')} style={styles.backButton}>
+              <Text style={styles.backButtonText}>← Back</Text>
             </Pressable>
-          ))}
-        </View>
+            <Text style={styles.homeTitle}>Create a Quiz</Text>
+          </View>
 
-        <Text style={styles.sectionHeader}>Choose quiz language</Text>
-        <View style={styles.languageBox}>
-          {languages.map((item) => (
-            <Pressable
-              key={item}
-              onPress={() => setSelectedLanguage(item)}
-              style={[
-                styles.languageItem,
-                selectedLanguage === item && styles.languageItemActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.languageText,
-                  selectedLanguage === item && styles.languageTextActive,
-                ]}
-              >
-                {item}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={styles.sectionHeader}>Choose quiz mode</Text>
-        <View style={styles.modeBox}>
-          {quizModes.map((item) => (
-            <Pressable
-              key={item}
-              onPress={() => setSelectedQuizMode(item)}
-              style={[
-                styles.modeItem,
-                selectedQuizMode === item && styles.modeItemActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.modeText,
-                  selectedQuizMode === item && styles.modeTextActive,
-                ]}
-              >
-                {QUIZ_MODE_LABELS[item]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.modeHint}>
-          General keeps it broad, Key Facts focuses on real facts, and Custom asks the AI to infer smart subtopics.
-        </Text>
-
-        <View style={styles.settingsDock}>
-          <Text style={styles.settingsDockLabel}>
-            Provider: {PROVIDER_LABELS[selectedProvider]}
+          <Text style={styles.sectionHeader}>Main topic or formula</Text>
+          <TextInput
+            style={styles.topic_box}
+            value={formula}
+            onChangeText={(text) => {
+              setFormula(text);
+              if (builderError) {
+                setBuilderError('');
+              }
+            }}
+            placeholder="Ex: world war, algebra, biology, a^2 + b^2 = c^2"
+            placeholderTextColor="#999"
+            multiline
+            numberOfLines={4}
+          />
+          <Text style={styles.topicHint}>
+            The AI will use this topic or formula to build related questions.
           </Text>
-          <Pressable
-            onPress={() => setIsSettingsOpen(true)}
-            style={styles.settingsButton}
-          >
-            <Text style={styles.settingsButtonText}>Settings</Text>
-          </Pressable>
-        </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.submit_Modal,
-            { opacity: pressed ? 0.8 : 1 },
-          ]}
-          onPress={handleStartQuiz}
-        >
-          <Text style={styles.submitText_Modal}>Start Quiz</Text>
-        </Pressable>
-      </ScrollView>
+          {selectedQuizMode === 'CUSTOM' ? (
+            <>
+              <Text style={styles.sectionHeader}>Custom instructions</Text>
+              <TextInput
+                style={styles.customBox}
+                value={customInstructions}
+                onChangeText={setCustomInstructions}
+                placeholder="Ex: focus on battles, leaders, alliances, and causes."
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+              />
+            </>
+          ) : null}
 
-      <Modal visible={isSettingsOpen} animationType="slide" transparent>
-        <View style={styles.settingsBackdrop}>
-          <View style={styles.settingsSheet}>
-            <Text style={styles.settingsTitle}>Settings</Text>
-            <Text style={styles.settingsHint}>Choose your quiz provider</Text>
+          {builderError ? (
+            <Text style={styles.errorText}>{builderError}</Text>
+          ) : null}
 
-            {providers.map((item) => (
+          <Text style={styles.sectionHeader}>Number of questions</Text>
+          <View style={styles.rowEven}>
+            {[5, 10, 15, 20].map((n) => (
+              <Pressable
+                key={n}
+                onPress={() => setNumQues(n)}
+                style={numques === n ? styles.numQuesActive : styles.numQues}
+              >
+                <Text style={numques === n ? styles.text_ques_Active : styles.text_ques}>{n}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.sectionHeader}>Choose your difficulty</Text>
+          <View style={styles.difficultyBox}>
+            {difficulties.map((item) => (
               <Pressable
                 key={item}
-                onPress={() => setSelectedProvider(item)}
+                onPress={() => setDiff(item)}
+                style={[styles.diffItem, selectedDiff === item && styles.diffItemActive]}
+              >
+                <Text style={styles.diffText}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.sectionHeader}>Choose quiz language</Text>
+          <View style={styles.languageBox}>
+            {languages.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setSelectedLanguage(item)}
                 style={[
-                  styles.providerItem,
-                  selectedProvider === item && styles.providerItemActive,
+                  styles.languageItem,
+                  selectedLanguage === item && styles.languageItemActive,
                 ]}
               >
                 <Text
                   style={[
-                    styles.providerText,
-                    selectedProvider === item && styles.providerTextActive,
+                    styles.languageText,
+                    selectedLanguage === item && styles.languageTextActive,
                   ]}
                 >
-                  {PROVIDER_LABELS[item]}
+                  {item}
                 </Text>
               </Pressable>
             ))}
-
-            {selectedProvider === 'OPENAI_COMPATIBLE' ? (
-              <View style={styles.providerConfigBox}>
-                <Text style={styles.providerConfigTitle}>
-                  OpenAI-compatible configuration
-                </Text>
-                <Text style={styles.providerConfigHint}>
-                  These fields are editable and used directly when you generate a quiz.
-                </Text>
-
-                <Text style={styles.providerFieldLabel}>Base URL</Text>
-                <TextInput
-                  style={styles.providerInput}
-                  value={openAiCompatibleBaseUrl}
-                  onChangeText={setOpenAiCompatibleBaseUrl}
-                  placeholder="https://your-host/v1"
-                  placeholderTextColor="#9F8B73"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <Text style={styles.providerFieldLabel}>Model</Text>
-                <TextInput
-                  style={styles.providerInput}
-                  value={openAiCompatibleModel}
-                  onChangeText={setOpenAiCompatibleModel}
-                  placeholder="gpt-4.1-mini"
-                  placeholderTextColor="#9F8B73"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <Text style={styles.providerFieldLabel}>API Key</Text>
-                <TextInput
-                  style={styles.providerInput}
-                  value={openAiCompatibleApiKey}
-                  onChangeText={setOpenAiCompatibleApiKey}
-                  placeholder="sk-..."
-                  placeholderTextColor="#9F8B73"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                />
-              </View>
-            ) : (
-              <Text style={styles.providerConfigHintStandalone}>
-                Cerebras uses the built-in constants at the top of this file.
-              </Text>
-            )}
-
-            <Pressable
-              onPress={() => setIsSettingsOpen(false)}
-              style={styles.settingsCloseButton}
-            >
-              <Text style={styles.settingsCloseButtonText}>Close</Text>
-            </Pressable>
           </View>
-        </View>
-      </Modal>
-    </View>
+
+          <Text style={styles.sectionHeader}>Choose quiz mode</Text>
+          <View style={styles.modeBox}>
+            {quizModes.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setSelectedQuizMode(item)}
+                style={[
+                  styles.modeItem,
+                  selectedQuizMode === item && styles.modeItemActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modeText,
+                    selectedQuizMode === item && styles.modeTextActive,
+                  ]}
+                >
+                  {QUIZ_MODE_LABELS[item]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.submit_Modal,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+            onPress={handleStartQuiz}
+          >
+            <Text style={styles.submitText_Modal}>Start Quiz</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // home — tab-based layout
+  if (activeTab === 'dashboard') {
+    return <DashboardScreen />;
+  }
+
+  if (activeTab === 'settings') {
+    return <SettingsScreen onSignOut={handleSignOut} />;
+  }
+
+  return (
+    <HomeScreen
+      onPlayAlone={() => setScreen('builder')}
+      onSignOut={handleSignOut}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    />
   );
 }
 
@@ -874,6 +725,18 @@ const styles = StyleSheet.create({
     color: '#2B2B2B',
     textAlign: 'center',
     marginBottom: 24,
+  },
+  builderHeader: {
+    marginBottom: 8,
+  },
+  backButton: {
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FF8C00',
   },
   container: {
     flex: 1,
@@ -919,140 +782,6 @@ const styles = StyleSheet.create({
   },
   submitText: { color: '#FF8C00', fontWeight: 'bold', fontSize: 20 },
   subtitle: { color: 'white', fontSize: 18, textAlign: 'center', opacity: 0.9, marginBottom: 20 },
-  settingsDock: {
-    position: 'absolute',
-    bottom: 28,
-    width: '100%',
-    alignItems: 'center',
-    gap: 10,
-  },
-  settingsDockLabel: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '700',
-    opacity: 0.95,
-  },
-  settingsButton: {
-    minWidth: 140,
-    minHeight: 46,
-    borderRadius: 24,
-    backgroundColor: '#1F1A15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  settingsButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  settingsBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  settingsSheet: {
-    backgroundColor: '#FFF6EA',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 34,
-  },
-  settingsTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#2B2B2B',
-    textAlign: 'center',
-  },
-  settingsHint: {
-    marginTop: 6,
-    marginBottom: 18,
-    textAlign: 'center',
-    color: '#6F5C48',
-    fontSize: 15,
-  },
-  providerItem: {
-    minHeight: 58,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: '#E2C89F',
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  providerItemActive: {
-    backgroundColor: '#FF8C00',
-    borderColor: '#FF8C00',
-  },
-  providerText: {
-    color: '#704400',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  providerTextActive: {
-    color: 'white',
-  },
-  providerConfigBox: {
-    marginTop: 8,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E8D6B8',
-  },
-  providerConfigTitle: {
-    color: '#2B2B2B',
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  providerConfigHint: {
-    color: '#7B6957',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  providerConfigHintStandalone: {
-    marginTop: 6,
-    marginBottom: 12,
-    textAlign: 'center',
-    color: '#7B6957',
-    fontSize: 14,
-  },
-  providerFieldLabel: {
-    color: '#704400',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  providerInput: {
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E0C7A0',
-    backgroundColor: '#FFF9F1',
-    paddingHorizontal: 14,
-    color: '#2B2B2B',
-    fontSize: 15,
-    marginBottom: 12,
-  },
-  settingsCloseButton: {
-    marginTop: 8,
-    minHeight: 52,
-    borderRadius: 18,
-    backgroundColor: '#1F1A15',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingsCloseButtonText: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-
   topic_box: {
     borderWidth: 1.5,
     borderColor: '#FF8C00',

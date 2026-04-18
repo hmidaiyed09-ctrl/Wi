@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,12 +8,18 @@ import {
   View,
 } from 'react-native';
 
+type Tab = 'home' | 'dashboard' | 'settings';
+
 type Props = {
   onPlayAlone: () => void;
-  onSettings: () => void;
+  onSignOut: () => void;
+  activeTab: Tab;
+  onTabChange: (tab: Tab) => void;
 };
 
-export default function HomeScreen({ onPlayAlone, onSettings }: Props) {
+export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabChange }: Props) {
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -21,17 +28,49 @@ export default function HomeScreen({ onPlayAlone, onSettings }: Props) {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.topIcon}>
-            <Text style={styles.topIconText}>⚡</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.logoSmall}>Wi</Text>
           </View>
-          <View>
-            <View style={styles.readyRow}>
-              <Text style={styles.readyStar}>✨</Text>
-              <Text style={styles.readyText}>READY FOR A CHALLENGE?</Text>
-            </View>
-            <Text style={styles.pageTitle}>Playground</Text>
-          </View>
+          <Pressable
+            onPress={() => setShowProfileMenu(true)}
+            style={styles.profileAvatar}
+          >
+            <Text style={styles.profileAvatarText}>U</Text>
+          </Pressable>
+        </View>
 
+        {/* Profile sign-out menu */}
+        <Modal visible={showProfileMenu} transparent animationType="fade">
+          <Pressable
+            style={styles.profileBackdrop}
+            onPress={() => setShowProfileMenu(false)}
+          >
+            <View style={styles.profileMenu}>
+              <Text style={styles.profileMenuName}>User</Text>
+              <Text style={styles.profileMenuEmail}>user@example.com</Text>
+              <View style={styles.profileMenuDivider} />
+              <Pressable
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  onSignOut();
+                }}
+                style={({ pressed }) => [
+                  styles.profileMenuSignOut,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Text style={styles.profileMenuSignOutText}>Sign Out</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+
+        <View style={styles.heroSection}>
+          <View style={styles.readyRow}>
+            <Text style={styles.readyStar}>✨</Text>
+            <Text style={styles.readyText}>READY FOR A CHALLENGE?</Text>
+          </View>
+          <Text style={styles.pageTitle}>Playground</Text>
         </View>
 
         {/* Cards Row */}
@@ -79,19 +118,19 @@ export default function HomeScreen({ onPlayAlone, onSettings }: Props) {
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <View style={styles.quickAction}>
-            <View style={styles.quickActionIcon}>
-              <Text style={styles.quickActionEmoji}>👤+</Text>
-            </View>
-            <Text style={styles.quickActionLabel}>Invite Friend</Text>
-          </View>
-          <View style={styles.quickAction}>
+          <Pressable style={styles.quickAction} onPress={onPlayAlone}>
             <View style={styles.quickActionIcon}>
               <Text style={styles.quickActionEmoji}>📝</Text>
             </View>
             <Text style={styles.quickActionLabel}>New Topic</Text>
-          </View>
-          <Pressable style={styles.quickAction} onPress={onSettings}>
+          </Pressable>
+          <Pressable style={styles.quickAction} onPress={() => onTabChange('dashboard')}>
+            <View style={styles.quickActionIcon}>
+              <Text style={styles.quickActionEmoji}>📊</Text>
+            </View>
+            <Text style={styles.quickActionLabel}>Dashboard</Text>
+          </Pressable>
+          <Pressable style={styles.quickAction} onPress={() => onTabChange('settings')}>
             <View style={styles.quickActionIcon}>
               <Text style={styles.quickActionEmoji}>⚙</Text>
             </View>
@@ -187,22 +226,29 @@ export default function HomeScreen({ onPlayAlone, onSettings }: Props) {
 
       {/* Bottom Nav */}
       <View style={styles.bottomNav}>
-        <View style={[styles.navItem, styles.navItemActive]}>
-          <View style={styles.navDot} />
-          <Text style={styles.navEmojiActive}>🏠</Text>
-          <Text style={styles.navLabelActive}>Home</Text>
-        </View>
-        <View style={styles.navItem}>
-          <Text style={styles.navEmoji}>📋</Text>
-          <Text style={styles.navLabel}>Dashboard</Text>
-        </View>
-        <View style={styles.navItem}>
-          <Text style={styles.navEmoji}>⭐</Text>
-          <Text style={styles.navLabel}>Invite</Text>
-        </View>
-        <Pressable style={styles.navItem} onPress={onSettings}>
-          <Text style={styles.navEmoji}>⚙</Text>
-          <Text style={styles.navLabel}>Settings</Text>
+        <Pressable
+          style={[styles.navItem, activeTab === 'home' && styles.navItemActive]}
+          onPress={() => onTabChange('home')}
+        >
+          {activeTab === 'home' && <View style={styles.navDot} />}
+          <Text style={activeTab === 'home' ? styles.navEmojiActive : styles.navEmoji}>🏠</Text>
+          <Text style={activeTab === 'home' ? styles.navLabelActive : styles.navLabel}>Home</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.navItem, activeTab === 'dashboard' && styles.navItemActive]}
+          onPress={() => onTabChange('dashboard')}
+        >
+          {activeTab === 'dashboard' && <View style={styles.navDot} />}
+          <Text style={activeTab === 'dashboard' ? styles.navEmojiActive : styles.navEmoji}>📊</Text>
+          <Text style={activeTab === 'dashboard' ? styles.navLabelActive : styles.navLabel}>Dashboard</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.navItem, activeTab === 'settings' && styles.navItemActive]}
+          onPress={() => onTabChange('settings')}
+        >
+          {activeTab === 'settings' && <View style={styles.navDot} />}
+          <Text style={activeTab === 'settings' ? styles.navEmojiActive : styles.navEmoji}>⚙</Text>
+          <Text style={activeTab === 'settings' ? styles.navLabelActive : styles.navLabel}>Settings</Text>
         </Pressable>
       </View>
     </View>
@@ -224,18 +270,76 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
   },
-  topIcon: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoSmall: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FF8C00',
+  },
+  profileAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FF8C00',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  topIconText: { fontSize: 18 },
+  profileAvatarText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: 'white',
+  },
+  profileBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 70,
+    paddingRight: 20,
+  },
+  profileMenu: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  profileMenuName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  profileMenuEmail: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  profileMenuDivider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 12,
+  },
+  profileMenuSignOut: {
+    paddingVertical: 8,
+  },
+  profileMenuSignOutText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E74C3C',
+  },
+  heroSection: {
+    marginBottom: 20,
+  },
   readyRow: {
     flexDirection: 'row',
     alignItems: 'center',
