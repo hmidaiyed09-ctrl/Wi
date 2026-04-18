@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { HomeIcon, ChartIcon, GearIcon } from './TabIcons';
 
 type Tab = 'home' | 'dashboard' | 'settings';
 type QuizLanguage = 'ARABIC' | 'ENGLISH';
@@ -90,7 +91,7 @@ export default function SettingsScreen({ onSignOut, selectedLanguage, onLanguage
           onPress={() => onTabChange('home')}
         >
           {activeTab === 'home' && <View style={styles.navDot} />}
-          <Text style={activeTab === 'home' ? styles.navEmojiActive : styles.navEmoji}>🏠</Text>
+          <HomeIcon color={activeTab === 'home' ? '#F5A623' : '#C8C8C8'} size={22} />
           <Text style={activeTab === 'home' ? styles.navLabelActive : styles.navLabel}>Home</Text>
         </Pressable>
         <Pressable
@@ -98,7 +99,7 @@ export default function SettingsScreen({ onSignOut, selectedLanguage, onLanguage
           onPress={() => onTabChange('dashboard')}
         >
           {activeTab === 'dashboard' && <View style={styles.navDot} />}
-          <Text style={activeTab === 'dashboard' ? styles.navEmojiActive : styles.navEmoji}>📊</Text>
+          <ChartIcon color={activeTab === 'dashboard' ? '#F5A623' : '#C8C8C8'} size={22} />
           <Text style={activeTab === 'dashboard' ? styles.navLabelActive : styles.navLabel}>Dashboard</Text>
         </Pressable>
         <Pressable
@@ -106,7 +107,7 @@ export default function SettingsScreen({ onSignOut, selectedLanguage, onLanguage
           onPress={() => onTabChange('settings')}
         >
           {activeTab === 'settings' && <View style={styles.navDot} />}
-          <Text style={activeTab === 'settings' ? styles.navEmojiActive : styles.navEmoji}>⚙</Text>
+          <GearIcon color={activeTab === 'settings' ? '#F5A623' : '#C8C8C8'} size={22} />
           <Text style={activeTab === 'settings' ? styles.navLabelActive : styles.navLabel}>Settings</Text>
         </Pressable>
       </View>

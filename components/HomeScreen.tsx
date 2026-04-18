@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { HomeIcon, ChartIcon, GearIcon } from './TabIcons';
 
 type Tab = 'home' | 'dashboard' | 'settings';
 
@@ -134,27 +135,7 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <Pressable style={styles.quickAction} onPress={onPlayAlone}>
-            <View style={styles.quickActionIcon}>
-              <Text style={styles.quickActionEmoji}>📝</Text>
-            </View>
-            <Text style={styles.quickActionLabel}>New Topic</Text>
-          </Pressable>
-          <Pressable style={styles.quickAction} onPress={() => onTabChange('dashboard')}>
-            <View style={styles.quickActionIcon}>
-              <Text style={styles.quickActionEmoji}>📊</Text>
-            </View>
-            <Text style={styles.quickActionLabel}>Dashboard</Text>
-          </Pressable>
-          <Pressable style={styles.quickAction} onPress={() => onTabChange('settings')}>
-            <View style={styles.quickActionIcon}>
-              <Text style={styles.quickActionEmoji}>⚙</Text>
-            </View>
-            <Text style={styles.quickActionLabel}>Settings</Text>
-          </Pressable>
-        </View>
+
 
         {/* Recent Games */}
         <View style={styles.sectionHeader}>
@@ -245,7 +226,7 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
           onPress={() => onTabChange('home')}
         >
           {activeTab === 'home' && <View style={styles.navDot} />}
-          <Text style={activeTab === 'home' ? styles.navEmojiActive : styles.navEmoji}>🏠</Text>
+          <HomeIcon color={activeTab === 'home' ? '#F5A623' : '#C8C8C8'} size={22} />
           <Text style={activeTab === 'home' ? styles.navLabelActive : styles.navLabel}>Home</Text>
         </Pressable>
         <Pressable
@@ -253,7 +234,7 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
           onPress={() => onTabChange('dashboard')}
         >
           {activeTab === 'dashboard' && <View style={styles.navDot} />}
-          <Text style={activeTab === 'dashboard' ? styles.navEmojiActive : styles.navEmoji}>📊</Text>
+          <ChartIcon color={activeTab === 'dashboard' ? '#F5A623' : '#C8C8C8'} size={22} />
           <Text style={activeTab === 'dashboard' ? styles.navLabelActive : styles.navLabel}>Dashboard</Text>
         </Pressable>
         <Pressable
@@ -261,7 +242,7 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
           onPress={() => onTabChange('settings')}
         >
           {activeTab === 'settings' && <View style={styles.navDot} />}
-          <Text style={activeTab === 'settings' ? styles.navEmojiActive : styles.navEmoji}>⚙</Text>
+          <GearIcon color={activeTab === 'settings' ? '#F5A623' : '#C8C8C8'} size={22} />
           <Text style={activeTab === 'settings' ? styles.navLabelActive : styles.navLabel}>Settings</Text>
         </Pressable>
       </View>
