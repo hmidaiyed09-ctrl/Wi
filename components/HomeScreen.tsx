@@ -10,14 +10,32 @@ import {
 
 type Tab = 'home' | 'dashboard' | 'settings';
 
+type QuizHistoryEntry = {
+  category: string;
+  score: number;
+  total: number;
+  date: string;
+  isFirst: boolean;
+};
+
 type Props = {
   onPlayAlone: () => void;
   onSignOut: () => void;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  quizHistory: QuizHistoryEntry[];
 };
 
-export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabChange }: Props) {
+const CATEGORY_EMOJI_MAP: Record<string, string> = {
+  entertainment: '🎭',
+  sports: '⚽',
+  general_knowledge: '🧠',
+  science: '🔬',
+  history: '📜',
+  custom: '✏️',
+};
+
+export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabChange, quizHistory }: Props) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   return (
@@ -144,50 +162,43 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
             <Text style={styles.sectionClock}>🕐</Text>
             <Text style={styles.sectionTitle}>Recent Games</Text>
           </View>
-          <Text style={styles.seeAll}>See all</Text>
+          <Pressable onPress={() => onTabChange('dashboard')}>
+            <Text style={styles.seeAll}>See all</Text>
+          </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.gamesScroll}
-        >
-          <View style={styles.gameCard}>
-            <View style={[styles.gameAvatar, styles.avatarOrange]}>
-
-            </View>
-            <Text style={styles.gameSubject}>HISTORY</Text>
-            <Text style={styles.gamePlayer}>Sarah J.</Text>
-            <Text style={[styles.gameScore, { color: '#FFA726' }]}>18/20</Text>
-            <View style={styles.gameBar}>
-              <View style={[styles.gameBarFill, { width: '90%', backgroundColor: '#FFA726' }]} />
-            </View>
+        {quizHistory.length === 0 ? (
+          <View style={styles.emptyRecent}>
+            <Text style={styles.emptyRecentEmoji}>🎮</Text>
+            <Text style={styles.emptyRecentText}>Play a quiz to see your history here!</Text>
           </View>
-
-          <View style={styles.gameCard}>
-            <View style={[styles.gameAvatar, styles.avatarGreen]}>
-
-            </View>
-            <Text style={styles.gameSubject}>SCIENCE</Text>
-            <Text style={styles.gamePlayer}>Mike Ross</Text>
-            <Text style={[styles.gameScore, { color: '#EF5350' }]}>12/20</Text>
-            <View style={styles.gameBar}>
-              <View style={[styles.gameBarFill, { width: '60%', backgroundColor: '#EF5350' }]} />
-            </View>
-          </View>
-
-          <View style={styles.gameCard}>
-            <View style={[styles.gameAvatar, styles.avatarBlue]}>
-
-            </View>
-            <Text style={styles.gameSubject}>MATH</Text>
-            <Text style={styles.gamePlayer}>Alex K.</Text>
-            <Text style={[styles.gameScore, { color: '#42A5F5' }]}>16/20</Text>
-            <View style={styles.gameBar}>
-              <View style={[styles.gameBarFill, { width: '80%', backgroundColor: '#42A5F5' }]} />
-            </View>
-          </View>
-        </ScrollView>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.gamesScroll}
+          >
+            {quizHistory.slice(-5).reverse().map((entry, i) => {
+              const pct = Math.round((entry.score / entry.total) * 100);
+              const color = pct >= 80 ? '#4CAF50' : pct >= 50 ? '#FFA726' : '#EF5350';
+              const emoji = CATEGORY_EMOJI_MAP[entry.category] || '📝';
+              const catLabel = entry.category.replace(/_/g, ' ').toUpperCase();
+              return (
+                <View key={i} style={styles.gameCard}>
+                  <View style={[styles.gameAvatar, { backgroundColor: '#FFF3E0' }]}>
+                    <Text style={styles.gameAvatarEmoji}>{emoji}</Text>
+                  </View>
+                  <Text style={styles.gameSubject}>{catLabel}</Text>
+                  <Text style={[styles.gameScore, { color }]}>{entry.score}/{entry.total}</Text>
+                  <View style={styles.gameBar}>
+                    <View style={[styles.gameBarFill, { width: `${pct}%`, backgroundColor: color }]} />
+                  </View>
+                  {entry.isFirst && <Text style={styles.perfectMark}>🏆</Text>}
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* Stats Card */}
         <View style={styles.statsCard}>
@@ -198,27 +209,30 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
               </View>
               <View>
                 <Text style={styles.statsLabel}>Your Stats</Text>
-                <Text style={styles.statsSubLabel}>WEEKLY PROGRESS</Text>
+                <Text style={styles.statsSubLabel}>OVERALL PROGRESS</Text>
               </View>
             </View>
             <View style={styles.statsRight}>
-              <Text style={styles.statsBigNumber}>78<Text style={styles.statsPercent}>%</Text></Text>
-              <Text style={styles.statsChange}>+5% this week</Text>
+              <Text style={styles.statsBigNumber}>
+                {quizHistory.length > 0 ? Math.round((quizHistory.filter(e => e.isFirst).length / quizHistory.length) * 100) : 0}
+                <Text style={styles.statsPercent}>%</Text>
+              </Text>
+              <Text style={styles.statsChange}>win rate</Text>
             </View>
           </View>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statItemLabel}>TOTAL GAMES</Text>
-              <Text style={styles.statItemValue}>124</Text>
+              <Text style={styles.statItemValue}>{quizHistory.length}</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statItemLabel}>AVERAGE SCORE</Text>
-              <Text style={styles.statItemValue}>840</Text>
+              <Text style={styles.statItemLabel}>PERFECT SCORES</Text>
+              <Text style={styles.statItemValue}>{quizHistory.filter(e => e.isFirst).length}</Text>
             </View>
           </View>
 
-          <Pressable style={styles.viewHistory}>
+          <Pressable style={styles.viewHistory} onPress={() => onTabChange('dashboard')}>
             <Text style={styles.viewHistoryText}>View Full History ›</Text>
           </Pressable>
         </View>
@@ -543,21 +557,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  avatarOrange: { backgroundColor: '#FFF3E0' },
-  avatarGreen: { backgroundColor: '#E8F5E9' },
-  avatarBlue: { backgroundColor: '#E3F2FD' },
   gameAvatarEmoji: { fontSize: 20 },
+  perfectMark: { fontSize: 14, marginTop: 6 },
+  emptyRecent: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#f0f0f0',
+    padding: 30,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyRecentEmoji: { fontSize: 32, marginBottom: 8 },
+  emptyRecentText: { fontSize: 14, fontWeight: '600', color: '#999', textAlign: 'center' },
   gameSubject: {
     fontSize: 9,
     fontWeight: '600',
     color: '#999',
     letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  gamePlayer: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
     marginBottom: 4,
   },
   gameScore: {
