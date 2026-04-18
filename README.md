@@ -210,6 +210,51 @@ if (activeTab === 'dashboard') {
 
 ---
 
+## 📋 Sprint 3 — Nettoyage UI & Iconographie Personnalisée
+
+**Date :** 18 Avril 2026  
+**Objectif :** Épurer l'interface d'accueil et remplacer les icônes emoji par des icônes de style "peint" professionnelles pour une expérience premium.
+
+---
+
+### US-9 : Nettoyage de la Page d'Accueil
+
+**En tant qu'** utilisateur,  
+**je veux** une page d'accueil moins encombrée,  
+**afin de** me concentrer sur les actions principales (jouer seul ou avec des amis).
+
+**Critères d'acceptation :**
+- ✅ Retrait de la ligne "Quick Actions" (New Topic, Dashboard, Settings) située sous les cartes principales.
+- ✅ L'espace libéré améliore la lisibilité des sections "Recent Games" et "Your Stats".
+
+---
+
+### US-10 : Iconographie "Painted Pro" sur Mesure
+
+**En tant qu'** utilisateur,  
+**je veux** des icônes de navigation qui ne ressemblent pas à de simples images ou emojis,  
+**afin d'** avoir une interface au look professionnel et unique ("painted style").
+
+**Critères d'acceptation :**
+- ✅ Suppression de tous les emojis Text dans la barre de navigation du bas.
+- ✅ Création d'un composant `TabIcons.tsx` utilisant uniquement des primitives `View` de React Native (sans bibliothèques externes ni images).
+- ✅ Design des icônes :
+  - **HomeIcon** : Maison stylisée avec toit et porte.
+  - **ChartIcon** : Graphique à barres dynamique à 4 colonnes.
+  - **GearIcon** : Engrenage dessiné avec anneau central et dents positionnées précisément.
+- ✅ Les icônes s'adaptent dynamiquement : **Orange** (`#F5A623`) quand actif, **Gris** (`#C8C8C8`) quand inactif.
+
+**Fichiers modifiés :**
+
+| Fichier | Modification |
+|---------|--------------|
+| `components/TabIcons.tsx` [NEW] | Implémentation des icônes `HomeIcon`, `ChartIcon` et `GearIcon` en pur code React Native. |
+| `components/HomeScreen.tsx` | Suppression du bloc `quickActions` et intégration des nouvelles icônes dans la `bottomNav`. |
+| `components/DashboardScreen.tsx` | Intégration des nouvelles icônes dans la `bottomNav`. |
+| `components/SettingsScreen.tsx` | Intégration des nouvelles icônes dans la `bottomNav`. |
+
+---
+
 ## 🏗️ Architecture Technique
 
 ### Fichiers Modifiés
