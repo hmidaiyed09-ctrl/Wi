@@ -255,6 +255,41 @@ if (activeTab === 'dashboard') {
 
 ---
 
+## 📋 Sprint 4 — Firebase Multiplayer & QR Support
+
+**Date :** 18 Avril 2026  
+**Objectif :** Implémenter des salles de jeu multijoueurs en temps réel propulsées par Firebase, avec système de création de salon et scan de Code QR natif pour rejoindre ses amis.
+
+---
+
+### US-11 : Création et Connexion au Salon Multijoueur
+
+**En tant qu'** utilisateur,  
+**je veux** créer ou rejoindre des salons ("Rooms") avec mes amis,  
+**afin de** synchroniser le lancement d'une partie.
+
+**Critères d'acceptation :**
+- ✅ Nouvelle configuration Firebase (`firebaseConfig.ts`) utilisant Firestore pour le temps réel.
+- ✅ L'écran d'accueil permet d'accéder au sous-menu `FriendsMenuScreen`.
+- ✅ Le menu propose "Create a Room" ou "Join a Room".
+- ✅ La création génère un code à 6 chiffres unique et affiche un QRCode SVG dynamique (`react-native-qrcode-svg`) pour le Host.
+
+---
+
+### US-12 : Scan de QR Code via Vision Camera
+
+**En tant qu'** utilisateur invité,  
+**je veux** utiliser la caméra de mon téléphone pour scanner le QR Code du salon,  
+**afin de** rejoindre instantanément mes amis sans taper le code manuellement.
+
+**Critères d'acceptation :**
+- ✅ Module Natif `react-native-vision-camera` (v4 propulsé par Nitro Modules/Worklets) installé et configuré.
+- ✅ Un écran `JoinRoomScreen` permet au choix de taper le code, ou d'appuyer sur "Scan QR Code" pour invoquer l'appareil photo.
+- ✅ La caméra décode automatiquement le QR et valide le code auprès de Firebase pour basculer en Waiting Room.
+- ✅ L'écran `WaitingRoomScreen` écoute en direct le "status" du salon (via `onSnapshot`). Si le Host clique sur Start, tous les joueurs synchronisés rejoignent la partie.
+
+---
+
 ## 🏗️ Architecture Technique
 
 ### Fichiers Modifiés
