@@ -21,6 +21,7 @@ type QuizHistoryEntry = {
 
 type Props = {
   onPlayAlone: () => void;
+  onWithFriends: () => void;
   onSignOut: () => void;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
@@ -36,7 +37,7 @@ const CATEGORY_EMOJI_MAP: Record<string, string> = {
   custom: '✏️',
 };
 
-export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabChange, quizHistory }: Props) {
+export default function HomeScreen({ onPlayAlone, onWithFriends, onSignOut, activeTab, onTabChange, quizHistory }: Props) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   return (
@@ -114,7 +115,13 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
           </Pressable>
 
           {/* With Friends */}
-          <View style={styles.cardFriends}>
+          <Pressable
+            onPress={onWithFriends}
+            style={({ pressed }) => [
+              styles.cardFriends,
+              { opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
             <View style={styles.friendsIcon}>
               <Text style={styles.friendsIconEmoji}>👥</Text>
             </View>
@@ -125,14 +132,14 @@ export default function HomeScreen({ onPlayAlone, onSignOut, activeTab, onTabCha
             <View style={styles.qrActions}>
               <View style={styles.qrAction}>
                 <Text style={styles.qrEmoji}>◻</Text>
-                <Text style={styles.qrText}>Generate QR</Text>
+                <Text style={styles.qrText}>Create Room</Text>
               </View>
               <View style={styles.qrAction}>
                 <Text style={styles.qrEmoji}>⊞</Text>
-                <Text style={styles.qrText}>Scan QR</Text>
+                <Text style={styles.qrText}>Scan / Join</Text>
               </View>
             </View>
-          </View>
+          </Pressable>
         </View>
 
 

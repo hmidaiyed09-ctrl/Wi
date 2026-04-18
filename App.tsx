@@ -13,16 +13,21 @@ import SignUpScreen from './components/SignUpScreen';
 import HomeScreen from './components/HomeScreen';
 import DashboardScreen from './components/DashboardScreen';
 import SettingsScreen from './components/SettingsScreen';
+import FriendsMenuScreen from './components/FriendsMenuScreen';
+import JoinRoomScreen from './components/JoinRoomScreen';
+import WaitingRoomScreen from './components/WaitingRoomScreen';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from './firebaseConfig';
 
 const API_BASE_URL = 'https://gen.pollinations.ai/v1';
-const API_KEY = 'dummy';
+const API_KEY = 'sk_HBp8YKEYoz2xmEhDoAyC7QHvDBEDRUtg';
 const API_MODEL = 'perplexity-fast';
 
 type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 type QuizLanguage = 'ARABIC' | 'ENGLISH';
 type QuizCategory = 'entertainment' | 'sports' | 'general_knowledge' | 'science' | 'history' | 'custom';
 type Tab = 'home' | 'dashboard' | 'settings';
-type Screen = 'welcome' | 'login' | 'signup' | 'home' | 'builder' | 'generating' | 'quiz' | 'result';
+type Screen = 'welcome' | 'login' | 'signup' | 'home' | 'builder' | 'generating' | 'quiz' | 'result' | 'friendsMenu' | 'joinRoom' | 'waitingRoom';
 
 type QuizQuestion = {
   id: string;
@@ -69,6 +74,8 @@ const CATEGORY_EMOJI_MAP: Record<string, string> = {
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [currentRoomId, setCurrentRoomId] = useState('');
+  const [isHost, setIsHost] = useState(false);
   const [numques, setNumQues] = useState(10);
   const [formula, setFormula] = useState('');
   const difficulties: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
@@ -83,6 +90,27 @@ export default function App() {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [quizHistory, setQuizHistory] = useState<QuizHistoryEntry[]>([]);
   const [lastQuizCategory, setLastQuizCategory] = useState('');
+
+  const handleCreateRoom = async () => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    try {
+      await setDoc(doc(db, 'rooms', code), {
+        status: 'waiting',
+        createdAt: new Date().toISOString()
+      });
+      setCurrentRoomId(code);
+      setIsHost(true);
+      setScreen('waitingRoom');
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const handleJoinRoom = (code: string) => {
+    setCurrentRoomId(code);
+    setIsHost(false);
+    setScreen('waitingRoom');
+  };
 
   const resetBuilder = () => {
     setNumQues(10);
@@ -180,7 +208,7 @@ export default function App() {
       },
       body: JSON.stringify({
         model: API_MODEL,
-        temperature: 0.7,
+        temperature: 1.70,
         messages: [
           {
             role: 'system',
@@ -224,9 +252,9 @@ export default function App() {
       const rawQuestion = String(item.question).trim();
       const options = Array.isArray(item.options)
         ? item.options
-            .map((option) => String(option).trim())
-            .filter((option) => option.length > 0)
-            .slice(0, 4)
+          .map((option) => String(option).trim())
+          .filter((option) => option.length > 0)
+          .slice(0, 4)
         : [];
 
       while (options.length < 4) {
@@ -689,9 +717,46 @@ export default function App() {
     );
   }
 
+  if (screen === 'friendsMenu') {
+    return (
+      <FriendsMenuScreen
+        onBack={() => setScreen('home')}
+        onCreateRoom={handleCreateRoom}
+        onJoinRoom={() => setScreen('joinRoom')}
+      />
+    );
+  }
+
+  if (screen === 'joinRoom') {
+    return (
+      <JoinRoomScreen
+        onBack={() => setScreen('friendsMenu')}
+        onRoomJoined={handleJoinRoom}
+      />
+    );
+  }
+
+  if (screen === 'waitingRoom') {
+    return (
+      <WaitingRoomScreen
+        roomId={currentRoomId}
+        isHost={isHost}
+        onBack={() => setScreen('friendsMenu')}
+        onStartGame={(startedRoomId) => {
+          // Both host and client enter builder screen
+          // Alternatively they just go to builder to prepare quiz
+          // Actually if host starts, maybe navigate both to generating ? 
+          // For now, let's bring them to the builder screen
+          setScreen('builder');
+        }}
+      />
+    );
+  }
+
   return (
     <HomeScreen
       onPlayAlone={() => setScreen('builder')}
+      onWithFriends={() => setScreen('friendsMenu')}
       onSignOut={handleSignOut}
       activeTab={activeTab}
       onTabChange={setActiveTab}
