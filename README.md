@@ -155,6 +155,61 @@
 
 ---
 
+## 📋 Sprint 2 — Correctifs Navigation & Expérience Utilisateur
+
+**Date :** 18 Avril 2026  
+**Objectif :** Corriger le bug de navigation qui bloquait l'utilisateur sur les écrans Dashboard et Settings sans possibilité de revenir à l'accueil.
+
+---
+
+### US-8 : Barre de Navigation Persistante sur Tous les Onglets
+
+**En tant qu'** utilisateur,  
+**je veux** pouvoir naviguer librement entre les onglets Home, Dashboard et Settings depuis n'importe quel écran,  
+**afin de** ne jamais me retrouver bloqué sur un écran sans moyen de revenir en arrière.
+
+**Problème identifié :**  
+Lorsque l'utilisateur cliquait sur **Dashboard** ou **Settings**, l'écran correspondant s'affichait mais la barre de navigation du bas disparaissait complètement. En effet, elle n'était rendue que dans `HomeScreen`, alors que `DashboardScreen` et `SettingsScreen` étaient eux montés **directement** dans `App.tsx` sans inclure cette barre.
+
+**Cause racine :**  
+Dans `App.tsx`, les conditions `if (activeTab === 'dashboard')` et `if (activeTab === 'settings')` retournaient leurs composants respectifs à la place de `HomeScreen`, ce qui excluait la barre de navigation (définie uniquement dans `HomeScreen`).
+
+**Critères d'acceptation :**
+- ✅ La barre de navigation (Home / Dashboard / Settings) est visible sur **tous** les onglets principaux
+- ✅ L'onglet actif est mis en surbrillance avec le point orange indicateur
+- ✅ Cliquer sur un onglet depuis Dashboard ou Settings navigue correctement vers l'onglet cible
+- ✅ Aucune régression sur le comportement des autres écrans (quiz, builder, résultats)
+
+**Fichiers modifiés :**
+
+| Fichier | Modification |
+|---------|--------------|
+| `App.tsx` | Propagation des props `activeTab` et `onTabChange` vers `DashboardScreen` et `SettingsScreen` |
+| `components/DashboardScreen.tsx` | Ajout du type `Tab`, des props `activeTab` / `onTabChange`, et rendu de la barre de navigation identique à celle de `HomeScreen` |
+| `components/SettingsScreen.tsx` | Ajout du type `Tab`, des props `activeTab` / `onTabChange`, et rendu de la barre de navigation identique à celle de `HomeScreen` |
+
+**Solution technique :**
+
+```tsx
+// Avant (App.tsx) — DashboardScreen sans navigation
+if (activeTab === 'dashboard') {
+  return <DashboardScreen quizHistory={quizHistory} />;
+}
+
+// Après (App.tsx) — DashboardScreen avec navigation complète
+if (activeTab === 'dashboard') {
+  return (
+    <DashboardScreen
+      quizHistory={quizHistory}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    />
+  );
+}
+```
+
+---
+
 ## 🏗️ Architecture Technique
 
 ### Fichiers Modifiés

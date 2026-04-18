@@ -668,7 +668,13 @@ export default function App() {
 
   // home — tab-based layout
   if (activeTab === 'dashboard') {
-    return <DashboardScreen quizHistory={quizHistory} />;
+    return (
+      <DashboardScreen
+        quizHistory={quizHistory}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+    );
   }
 
   if (activeTab === 'settings') {
@@ -677,6 +683,8 @@ export default function App() {
         onSignOut={handleSignOut}
         selectedLanguage={selectedLanguage}
         onLanguageChange={setSelectedLanguage}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       />
     );
   }

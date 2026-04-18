@@ -1,10 +1,13 @@
 import React from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+
+type Tab = 'home' | 'dashboard' | 'settings';
 
 type QuizHistoryEntry = {
   category: string;
@@ -16,6 +19,8 @@ type QuizHistoryEntry = {
 
 type Props = {
   quizHistory: QuizHistoryEntry[];
+  activeTab: Tab;
+  onTabChange: (tab: Tab) => void;
 };
 
 const CATEGORY_EMOJI_MAP: Record<string, string> = {
@@ -35,7 +40,7 @@ function formatCategory(category: string): string {
   return category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function DashboardScreen({ quizHistory }: Props) {
+export default function DashboardScreen({ quizHistory, activeTab, onTabChange }: Props) {
   const totalQuizzes = quizHistory.length;
   const totalFirstPlace = quizHistory.filter((e) => e.isFirst).length;
   const overallWinRate = totalQuizzes > 0 ? Math.round((totalFirstPlace / totalQuizzes) * 100) : 0;
@@ -59,7 +64,7 @@ export default function DashboardScreen({ quizHistory }: Props) {
   }));
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="dashboard-screen">
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -165,18 +170,87 @@ export default function DashboardScreen({ quizHistory }: Props) {
           </View>
         )}
       </ScrollView>
+
+      {/* Bottom Nav */}
+      <View style={styles.bottomNav}>
+        <Pressable
+          style={[styles.navItem, activeTab === 'home' && styles.navItemActive]}
+          onPress={() => onTabChange('home')}
+        >
+          {activeTab === 'home' && <View style={styles.navDot} />}
+          <Text style={activeTab === 'home' ? styles.navEmojiActive : styles.navEmoji}>🏠</Text>
+          <Text style={activeTab === 'home' ? styles.navLabelActive : styles.navLabel}>Home</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.navItem, activeTab === 'dashboard' && styles.navItemActive]}
+          onPress={() => onTabChange('dashboard')}
+        >
+          {activeTab === 'dashboard' && <View style={styles.navDot} />}
+          <Text style={activeTab === 'dashboard' ? styles.navEmojiActive : styles.navEmoji}>📊</Text>
+          <Text style={activeTab === 'dashboard' ? styles.navLabelActive : styles.navLabel}>Dashboard</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.navItem, activeTab === 'settings' && styles.navItemActive]}
+          onPress={() => onTabChange('settings')}
+        >
+          {activeTab === 'settings' && <View style={styles.navDot} />}
+          <Text style={activeTab === 'settings' ? styles.navEmojiActive : styles.navEmoji}>⚙</Text>
+          <Text style={activeTab === 'settings' ? styles.navLabelActive : styles.navLabel}>Settings</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  bottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 10,
+    paddingBottom: 24,
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  navItemActive: {
+    position: 'relative',
+  },
+  navDot: {
+    position: 'absolute',
+    top: -10,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#F5A623',
+  },
+  navEmoji: { fontSize: 20, opacity: 0.35 },
+  navEmojiActive: { fontSize: 20 },
+  navLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#ccc',
+  },
+  navLabelActive: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#F5A623',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fafafa',
   },
   scrollContent: {
     paddingHorizontal: 14,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   header: {
     fontSize: 28,
