@@ -18,6 +18,25 @@ type Props = {
 };
 
 const MAX_PLAYERS = 8;
+type RoomServiceModule = {
+  createRoom: (hostName: string, roomName?: string) => Promise<RoomState>;
+  subscribeToRoom: (
+    roomCodeInput: string,
+    onChange: (room: RoomState) => void,
+    onError: (error: Error) => void,
+  ) => () => void;
+};
+
+const resolveRoomService = async (): Promise<RoomServiceModule> => {
+  const module = await import('../services/firebaseRooms');
+  const candidate = ((module as { default?: unknown }).default ?? module) as Partial<RoomServiceModule>;
+
+  if (typeof candidate.createRoom !== 'function' || typeof candidate.subscribeToRoom !== 'function') {
+    throw new Error('ROOM_SERVICE_UNAVAILABLE');
+  }
+
+  return candidate as RoomServiceModule;
+};
 
 const getCreateRoomErrorMessage = (error: unknown): string => {
   if (!(error instanceof Error)) {
@@ -33,6 +52,9 @@ const getCreateRoomErrorMessage = (error: unknown): string => {
   }
   if (message.includes('chunk') || message.includes('loading')) {
     return 'Room module failed to load. Refresh and try again.';
+  }
+  if (message.includes('room_service_unavailable')) {
+    return 'Room service failed to initialize. Please refresh the app.';
   }
 
   return `Unable to create room right now: ${error.message}`;
@@ -67,7 +89,7 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
     setError('');
 
     try {
-      const roomService = await import('../services/firebaseRooms');
+      const roomService = await resolveRoomService();
       const createdRoom = await roomService.createRoom(profileName, trimmedName);
       setRoom(createdRoom);
 

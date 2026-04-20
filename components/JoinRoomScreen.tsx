@@ -15,6 +15,26 @@ type Props = {
   profileName: string;
 };
 
+type RoomServiceModule = {
+  joinRoom: (roomCodeInput: string, playerName: string) => Promise<RoomState>;
+  subscribeToRoom: (
+    roomCodeInput: string,
+    onChange: (room: RoomState) => void,
+    onError: (error: Error) => void,
+  ) => () => void;
+};
+
+const resolveRoomService = async (): Promise<RoomServiceModule> => {
+  const module = await import('../services/firebaseRooms');
+  const candidate = ((module as { default?: unknown }).default ?? module) as Partial<RoomServiceModule>;
+
+  if (typeof candidate.joinRoom !== 'function' || typeof candidate.subscribeToRoom !== 'function') {
+    throw new Error('ROOM_SERVICE_UNAVAILABLE');
+  }
+
+  return candidate as RoomServiceModule;
+};
+
 export default function JoinRoomScreen({ onBack, profileName }: Props) {
   const [roomCode, setRoomCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
@@ -35,7 +55,7 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
     setIsJoining(true);
 
     try {
-      const roomService = await import('../services/firebaseRooms');
+      const roomService = await resolveRoomService();
       const room = await roomService.joinRoom(roomCode, profileName);
       setJoinedRoom(room);
 
@@ -58,6 +78,8 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
         setError('Please enter a valid 6-digit room code.');
       } else if (caughtError instanceof Error && caughtError.message === 'ROOM_NOT_FOUND') {
         setError('Room not found. Check the code and try again.');
+      } else if (caughtError instanceof Error && caughtError.message === 'ROOM_SERVICE_UNAVAILABLE') {
+        setError('Room service failed to initialize. Please refresh the app.');
       } else {
         setError('Unable to join room right now. Please try again.');
       }
