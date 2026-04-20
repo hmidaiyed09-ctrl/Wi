@@ -36,7 +36,13 @@ const API_MODEL = 'perplexity-fast';
 
 type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 type QuizLanguage = 'ARABIC' | 'ENGLISH';
-type QuizCategory = 'entertainment' | 'sports' | 'general_knowledge' | 'science' | 'history' | 'custom';
+type QuizCategory =
+  | 'entertainment'
+  | 'sports'
+  | 'general_knowledge'
+  | 'science'
+  | 'history'
+  | 'custom';
 type Tab = 'home' | 'dashboard' | 'settings';
 type Screen =
   | 'welcome'
@@ -74,14 +80,15 @@ type QuizHistoryEntry = {
   isFirst: boolean;
 };
 
-const CATEGORY_OPTIONS: { key: QuizCategory; label: string; emoji: string }[] = [
-  { key: 'entertainment', label: 'Entertainment', emoji: '🎬' },
-  { key: 'sports', label: 'Sports', emoji: '⚽' },
-  { key: 'general_knowledge', label: 'General Knowledge', emoji: '🧠' },
-  { key: 'science', label: 'Science', emoji: '🔬' },
-  { key: 'history', label: 'History', emoji: '📜' },
-  { key: 'custom', label: 'Custom', emoji: '✏️' },
-];
+const CATEGORY_OPTIONS: { key: QuizCategory; label: string; emoji: string }[] =
+  [
+    { key: 'entertainment', label: 'Entertainment', emoji: '🎬' },
+    { key: 'sports', label: 'Sports', emoji: '⚽' },
+    { key: 'general_knowledge', label: 'General Knowledge', emoji: '🧠' },
+    { key: 'science', label: 'Science', emoji: '🔬' },
+    { key: 'history', label: 'History', emoji: '📜' },
+    { key: 'custom', label: 'Custom', emoji: '✏️' },
+  ];
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
@@ -90,12 +97,16 @@ export default function App() {
   const [formula, setFormula] = useState('');
   const difficulties: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
   const [selectedDiff, setDiff] = useState<Difficulty>('EASY');
-  const [selectedLanguage, setSelectedLanguage] = useState<QuizLanguage>('ENGLISH');
-  const [selectedCategory, setSelectedCategory] = useState<QuizCategory>('general_knowledge');
+  const [selectedLanguage, setSelectedLanguage] =
+    useState<QuizLanguage>('ENGLISH');
+  const [selectedCategory, setSelectedCategory] =
+    useState<QuizCategory>('general_knowledge');
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [builderError, setBuilderError] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<
+    Record<string, string>
+  >({});
   const [score, setScore] = useState(0);
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [quizHistory, setQuizHistory] = useState<QuizHistoryEntry[]>([]);
@@ -105,15 +116,18 @@ export default function App() {
   const [syncError, setSyncError] = useState('');
   const profileName = userProfile?.username ?? 'User';
   const profileEmail = userProfile?.email ?? '';
-  const authProviderLabel = userProfile?.providerId === 'google.com' ? 'Google account' : 'Email account';
+  const authProviderLabel =
+    userProfile?.providerId === 'google.com'
+      ? 'Google account'
+      : 'Email account';
   const getLocalProfileFromAuthUser = (user: firebase.User): UserProfile => ({
     uid: user.uid,
     username:
       typeof user.displayName === 'string' && user.displayName.trim().length > 0
         ? user.displayName.trim()
-        : (typeof user.email === 'string' && user.email.includes('@')
-            ? user.email.split('@')[0].trim() || 'User'
-            : 'User'),
+        : typeof user.email === 'string' && user.email.includes('@')
+        ? user.email.split('@')[0].trim() || 'User'
+        : 'User',
     email: user.email ?? '',
     providerId: user.providerData?.[0]?.providerId ?? 'password',
     preferredLanguage: 'ENGLISH',
@@ -135,7 +149,7 @@ export default function App() {
         }
 
         unsubscribe = onAuthStateChanged(
-          async (user) => {
+          async user => {
             if (!user) {
               setUserProfile(null);
               setQuizHistory([]);
@@ -154,7 +168,9 @@ export default function App() {
                 history = await loadQuizHistory(profile.uid);
               } catch {
                 historyLoadFailed = true;
-                setSyncError('Signed in, but cloud quiz history is currently unavailable.');
+                setSyncError(
+                  'Signed in, but cloud quiz history is currently unavailable.',
+                );
               }
               setUserProfile(profile);
               setSelectedLanguage(profile.preferredLanguage);
@@ -169,7 +185,9 @@ export default function App() {
               setUserProfile(localProfile);
               setQuizHistory([]);
               setSelectedLanguage(localProfile.preferredLanguage);
-              setSyncError('Signed in, but cloud profile sync failed. Using local session data.');
+              setSyncError(
+                'Signed in, but cloud profile sync failed. Using local session data.',
+              );
               setScreen('home');
               setActiveTab('home');
             } finally {
@@ -217,11 +235,14 @@ export default function App() {
 
   const getCategoryTopic = (cat: QuizCategory): string => {
     const map: Record<QuizCategory, string> = {
-      entertainment: 'Entertainment, movies, music, TV shows, celebrities, pop culture',
+      entertainment:
+        'Entertainment, movies, music, TV shows, celebrities, pop culture',
       sports: 'Sports, football, basketball, Olympics, athletes, competitions',
-      general_knowledge: 'General knowledge, trivia, world facts, geography, culture',
+      general_knowledge:
+        'General knowledge, trivia, world facts, geography, culture',
       science: 'Science, physics, chemistry, biology, space, technology',
-      history: 'History, world wars, ancient civilizations, historical events, leaders',
+      history:
+        'History, world wars, ancient civilizations, historical events, leaders',
       custom: '',
     };
     return map[cat];
@@ -260,10 +281,16 @@ export default function App() {
     ) => {
       const normalizedQuestion = normalizeText(questionText);
       const normalizedCorrectAnswer = normalizeText(correctAnswer);
-      const uniqueOptions = new Set(options.map((option) => normalizeText(option)));
+      const uniqueOptions = new Set(
+        options.map(option => normalizeText(option)),
+      );
       if (normalizedQuestion.length < 10) return false;
       if (uniqueOptions.size < 4) return false;
-      if (normalizedCorrectAnswer.length > 2 && normalizedQuestion.includes(normalizedCorrectAnswer)) return false;
+      if (
+        normalizedCorrectAnswer.length > 2 &&
+        normalizedQuestion.includes(normalizedCorrectAnswer)
+      )
+        return false;
       return true;
     };
 
@@ -334,7 +361,9 @@ export default function App() {
       throw new Error('NO_QUESTIONS_RETURNED');
     }
 
-    const aiCategories = Array.isArray(parsed.categories) ? parsed.categories : [];
+    const aiCategories = Array.isArray(parsed.categories)
+      ? parsed.categories
+      : [];
 
     const validQuestions: QuizQuestion[] = [];
     const seenQuestions = new Set<string>();
@@ -343,8 +372,8 @@ export default function App() {
       const rawQuestion = String(item.question).trim();
       const options = Array.isArray(item.options)
         ? item.options
-            .map((option) => String(option).trim())
-            .filter((option) => option.length > 0)
+            .map(option => String(option).trim())
+            .filter(option => option.length > 0)
             .slice(0, 4)
         : [];
 
@@ -360,7 +389,11 @@ export default function App() {
 
       if (
         seenQuestions.has(questionKey) ||
-        !isLogicalQuestion(rawQuestion, shuffledOptions, normalizedCorrectAnswer)
+        !isLogicalQuestion(
+          rawQuestion,
+          shuffledOptions,
+          normalizedCorrectAnswer,
+        )
       ) {
         continue;
       }
@@ -393,7 +426,10 @@ export default function App() {
   };
 
   const handleStartQuiz = async () => {
-    const topic = selectedCategory === 'custom' ? formula.trim() : getCategoryTopic(selectedCategory);
+    const topic =
+      selectedCategory === 'custom'
+        ? formula.trim()
+        : getCategoryTopic(selectedCategory);
     if (!topic) {
       setBuilderError('Please enter a topic first.');
       return;
@@ -413,17 +449,25 @@ export default function App() {
       setScore(0);
       setIsReviewMode(false);
       setQuiz(result.questions);
-      const cat = selectedCategory === 'custom'
-        ? (result.categories.length > 0 ? result.categories[0] : 'custom')
-        : selectedCategory;
+      const cat =
+        selectedCategory === 'custom'
+          ? result.categories.length > 0
+            ? result.categories[0]
+            : 'custom'
+          : selectedCategory;
       setLastQuizCategory(cat);
       setScreen('quiz');
     } catch (error) {
       setScreen('builder');
-      if (error instanceof Error && error.message.startsWith('LOW_QUALITY_QUIZ')) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith('LOW_QUALITY_QUIZ')
+      ) {
         setBuilderError('The generated quiz was low quality. Try again.');
       } else {
-        setBuilderError('Quiz generation failed. Check your network, then try again.');
+        setBuilderError(
+          'Quiz generation failed. Check your network, then try again.',
+        );
       }
     }
   };
@@ -439,7 +483,9 @@ export default function App() {
 
   const finishQuiz = () => {
     const totalScore = quiz.reduce((count, item) => {
-      return selectedAnswers[item.id] === item.correctAnswer ? count + 1 : count;
+      return selectedAnswers[item.id] === item.correctAnswer
+        ? count + 1
+        : count;
     }, 0);
 
     setScore(totalScore);
@@ -452,7 +498,7 @@ export default function App() {
       date: new Date().toISOString(),
       isFirst: totalScore === quiz.length,
     };
-    setQuizHistory((prev) => [...prev, entry]);
+    setQuizHistory(prev => [...prev, entry]);
     if (userProfile) {
       saveQuizHistoryEntry(userProfile.uid, entry).catch(() => {
         setSyncError('Your score was saved locally, but cloud sync failed.');
@@ -466,7 +512,11 @@ export default function App() {
     await signInWithEmail(email, password);
   };
 
-  const handleEmailSignUp = async (username: string, email: string, password: string) => {
+  const handleEmailSignUp = async (
+    username: string,
+    email: string,
+    password: string,
+  ) => {
     await signUpWithEmail(username, email, password);
   };
 
@@ -539,7 +589,11 @@ export default function App() {
         <ActivityIndicator size="large" color="#FF8C00" />
         <Text style={styles.generatingTitle}>Generating quiz...</Text>
         <Text style={styles.generatingSubtitle}>
-          AI is building your {selectedCategory === 'custom' ? formula : selectedCategory.replace('_', ' ')} quiz
+          AI is building your{' '}
+          {selectedCategory === 'custom'
+            ? formula
+            : selectedCategory.replace('_', ' ')}{' '}
+          quiz
         </Text>
       </View>
     );
@@ -554,7 +608,8 @@ export default function App() {
       >
         <Text style={styles.quizTitle}>Your Quiz</Text>
         <Text style={styles.quizMeta}>
-          Category: {categoryLabel} | Questions: {numques} | Difficulty: {selectedDiff}
+          Category: {categoryLabel} | Questions: {numques} | Difficulty:{' '}
+          {selectedDiff}
         </Text>
         <Text style={styles.quizProgress}>
           {isReviewMode
@@ -567,7 +622,9 @@ export default function App() {
 
         {currentQuestion ? (
           <View style={styles.questionCardLarge}>
-            <Text style={styles.questionTextLarge}>{currentQuestion.question}</Text>
+            <Text style={styles.questionTextLarge}>
+              {currentQuestion.question}
+            </Text>
             <View style={styles.optionList}>
               {currentQuestion.options.map((option, index) => {
                 const selectedAnswer = selectedAnswers[currentQuestion.id];
@@ -580,7 +637,7 @@ export default function App() {
                     key={`${currentQuestion.id}-${index}`}
                     disabled={isReviewMode}
                     onPress={() =>
-                      setSelectedAnswers((prev) => ({
+                      setSelectedAnswers(prev => ({
                         ...prev,
                         [currentQuestion.id]: option,
                       }))
@@ -596,7 +653,9 @@ export default function App() {
                     <Text
                       style={[
                         styles.optionLabel,
-                        !isReviewMode && isSelected && styles.optionLabelSelected,
+                        !isReviewMode &&
+                          isSelected &&
+                          styles.optionLabelSelected,
                         showCorrect && styles.optionLabelCorrect,
                         showWrong && styles.optionLabelWrong,
                       ]}
@@ -606,7 +665,9 @@ export default function App() {
                     <Text
                       style={[
                         styles.optionText,
-                        !isReviewMode && isSelected && styles.optionTextSelected,
+                        !isReviewMode &&
+                          isSelected &&
+                          styles.optionTextSelected,
                         showCorrect && styles.optionTextCorrect,
                         showWrong && styles.optionTextWrong,
                       ]}
@@ -628,7 +689,9 @@ export default function App() {
 
         <View style={styles.quizActionsRow}>
           <Pressable
-            onPress={() => setCurrentQuestionIndex((prev) => Math.max(prev - 1, 0))}
+            onPress={() =>
+              setCurrentQuestionIndex(prev => Math.max(prev - 1, 0))
+            }
             disabled={currentQuestionIndex === 0}
             style={[
               styles.quizNavButton,
@@ -641,7 +704,7 @@ export default function App() {
           <Pressable
             onPress={() => {
               if (currentQuestionIndex < quiz.length - 1) {
-                setCurrentQuestionIndex((prev) => prev + 1);
+                setCurrentQuestionIndex(prev => prev + 1);
                 return;
               }
               if (isReviewMode) {
@@ -656,8 +719,8 @@ export default function App() {
               {currentQuestionIndex < quiz.length - 1
                 ? 'Next'
                 : isReviewMode
-                  ? 'Back to result'
-                  : 'Finish'}
+                ? 'Back to result'
+                : 'Finish'}
             </Text>
           </Pressable>
         </View>
@@ -675,9 +738,7 @@ export default function App() {
         <Text style={styles.resultSummary}>
           You answered {answeredCount} out of {quiz.length} questions.
         </Text>
-        <Text style={styles.resultSummary}>
-          Correct answers: {score}
-        </Text>
+        <Text style={styles.resultSummary}>Correct answers: {score}</Text>
 
         <Pressable
           style={styles.resultButtonPrimary}
@@ -698,7 +759,9 @@ export default function App() {
             setQuiz([]);
           }}
         >
-          <Text style={styles.resultButtonSecondaryText}>Create another quiz</Text>
+          <Text style={styles.resultButtonSecondaryText}>
+            Create another quiz
+          </Text>
         </Pressable>
       </View>
     );
@@ -736,18 +799,27 @@ export default function App() {
   if (screen === 'builder') {
     return (
       <View style={styles.builderContainer}>
+        <View pointerEvents="none" style={styles.builderGlowTop} />
+        <View pointerEvents="none" style={styles.builderGlowBottom} />
         <ScrollView contentContainerStyle={styles.builderContent}>
-          <Pressable onPress={() => setScreen('home')} style={styles.builderBack}>
+          <Pressable
+            onPress={() => setScreen('home')}
+            style={styles.builderBack}
+          >
             <Text style={styles.builderBackText}>← Back</Text>
           </Pressable>
 
-          <Text style={styles.builderTitle}>Game Room</Text>
-          <Text style={styles.builderSubtitle}>Set up your quiz challenge</Text>
+          <View style={styles.builderHero}>
+            <Text style={styles.builderTitle}>Game Room</Text>
+            <Text style={styles.builderSubtitle}>
+              Set up your quiz challenge
+            </Text>
+          </View>
 
           {/* Category Grid */}
           <Text style={styles.builderSection}>Choose Category</Text>
           <View style={styles.categoryGrid}>
-            {CATEGORY_OPTIONS.map((cat) => (
+            {CATEGORY_OPTIONS.map(cat => (
               <Pressable
                 key={cat.key}
                 onPress={() => {
@@ -759,11 +831,23 @@ export default function App() {
                   selectedCategory === cat.key && styles.categoryCardActive,
                 ]}
               >
-                <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                <Text style={[
-                  styles.categoryLabel,
-                  selectedCategory === cat.key && styles.categoryLabelActive,
-                ]}>{cat.label}</Text>
+                <View
+                  style={[
+                    styles.categoryEmojiWrap,
+                    selectedCategory === cat.key &&
+                      styles.categoryEmojiWrapActive,
+                  ]}
+                >
+                  <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.categoryLabel,
+                    selectedCategory === cat.key && styles.categoryLabelActive,
+                  ]}
+                >
+                  {cat.label}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -775,7 +859,7 @@ export default function App() {
               <TextInput
                 style={styles.customTopicInput}
                 value={formula}
-                onChangeText={(text) => {
+                onChangeText={text => {
                   setFormula(text);
                   if (builderError) setBuilderError('');
                 }}
@@ -793,13 +877,23 @@ export default function App() {
           {/* Number of questions */}
           <Text style={styles.builderSection}>Questions</Text>
           <View style={styles.numRow}>
-            {[5, 10, 15, 20].map((n) => (
+            {[5, 10, 15, 20].map(n => (
               <Pressable
                 key={n}
                 onPress={() => setNumQues(n)}
-                style={[styles.numCircle, numques === n && styles.numCircleActive]}
+                style={[
+                  styles.numCircle,
+                  numques === n && styles.numCircleActive,
+                ]}
               >
-                <Text style={[styles.numText, numques === n && styles.numTextActive]}>{n}</Text>
+                <Text
+                  style={[
+                    styles.numText,
+                    numques === n && styles.numTextActive,
+                  ]}
+                >
+                  {n}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -807,13 +901,21 @@ export default function App() {
           {/* Difficulty */}
           <Text style={styles.builderSection}>Difficulty</Text>
           <View style={styles.diffRow}>
-            {difficulties.map((item) => (
+            {difficulties.map(item => (
               <Pressable
                 key={item}
                 onPress={() => setDiff(item)}
-                style={[styles.diffPill, selectedDiff === item && styles.diffPillActive]}
+                style={[
+                  styles.diffPill,
+                  selectedDiff === item && styles.diffPillActive,
+                ]}
               >
-                <Text style={[styles.diffPillText, selectedDiff === item && styles.diffPillTextActive]}>
+                <Text
+                  style={[
+                    styles.diffPillText,
+                    selectedDiff === item && styles.diffPillTextActive,
+                  ]}
+                >
                   {item}
                 </Text>
               </Pressable>
@@ -880,34 +982,58 @@ const styles = StyleSheet.create({
   /* Builder — dark room */
   builderContainer: {
     flex: 1,
-    backgroundColor: '#1B1D2A',
+    backgroundColor: '#171A2B',
+  },
+  builderGlowTop: {
+    position: 'absolute',
+    top: -140,
+    left: -120,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255,140,0,0.12)',
+  },
+  builderGlowBottom: {
+    position: 'absolute',
+    bottom: -180,
+    right: -140,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(245,166,35,0.08)',
   },
   builderContent: {
-    paddingTop: 50,
+    paddingTop: 44,
     paddingHorizontal: 20,
-    paddingBottom: 60,
+    paddingBottom: 78,
   },
   builderBack: {
-    marginBottom: 16,
+    marginBottom: 10,
     alignSelf: 'flex-start',
   },
   builderBackText: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FF8C00',
+    textShadowColor: 'rgba(255,140,0,0.35)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  builderHero: {
+    alignItems: 'center',
+    marginBottom: 26,
   },
   builderTitle: {
-    fontSize: 32,
+    fontSize: 44,
     fontWeight: '900',
     color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   builderSubtitle: {
-    fontSize: 14,
-    color: '#8B8FAD',
+    fontSize: 16,
+    color: '#9AA1C0',
     textAlign: 'center',
-    marginBottom: 28,
   },
   builderSection: {
     fontSize: 16,
@@ -926,23 +1052,39 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     width: '47%',
-    backgroundColor: '#252840',
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: '#33365A',
-    paddingVertical: 20,
+    backgroundColor: '#232741',
+    borderRadius: 20,
+    borderWidth: 1.8,
+    borderColor: '#3A3F66',
+    paddingVertical: 18,
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   categoryCardActive: {
     backgroundColor: '#FF8C00',
     borderColor: '#FF8C00',
+    shadowColor: '#FF8C00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  categoryEmojiWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryEmojiWrapActive: {
+    backgroundColor: 'rgba(255,255,255,0.24)',
   },
   categoryEmoji: {
-    fontSize: 32,
+    fontSize: 26,
   },
   categoryLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     color: '#8B8FAD',
   },
@@ -953,10 +1095,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   customTopicInput: {
-    backgroundColor: '#252840',
+    backgroundColor: '#232741',
     borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#33365A',
+    borderWidth: 1.8,
+    borderColor: '#3A3F66',
     color: '#FFFFFF',
     fontSize: 16,
     paddingHorizontal: 14,
@@ -977,12 +1119,12 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   numCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#252840',
-    borderWidth: 2,
-    borderColor: '#33365A',
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#232741',
+    borderWidth: 1.8,
+    borderColor: '#3A3F66',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1013,9 +1155,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: '#252840',
-    borderWidth: 2,
-    borderColor: '#33365A',
+    backgroundColor: '#232741',
+    borderWidth: 1.8,
+    borderColor: '#3A3F66',
     alignItems: 'center',
   },
   diffPillActive: {
@@ -1032,7 +1174,9 @@ const styles = StyleSheet.create({
   },
   startButton: {
     backgroundColor: '#FF8C00',
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFC06A',
     paddingVertical: 18,
     alignItems: 'center',
     shadowColor: '#FF8C00',
@@ -1091,7 +1235,13 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   submitText: { color: '#FF8C00', fontWeight: 'bold', fontSize: 20 },
-  subtitle: { color: 'white', fontSize: 18, textAlign: 'center', opacity: 0.9, marginBottom: 20 },
+  subtitle: {
+    color: 'white',
+    fontSize: 18,
+    textAlign: 'center',
+    opacity: 0.9,
+    marginBottom: 20,
+  },
 
   /* Generating */
   generatingContainer: {
@@ -1262,9 +1412,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  resultTitle: { fontSize: 34, fontWeight: '800', color: '#2B2B2B', marginBottom: 20 },
-  resultScore: { fontSize: 52, fontWeight: '900', color: '#FF8C00', marginBottom: 16 },
-  resultSummary: { fontSize: 18, color: '#5B4A3B', textAlign: 'center', marginBottom: 8 },
+  resultTitle: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#2B2B2B',
+    marginBottom: 20,
+  },
+  resultScore: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: '#FF8C00',
+    marginBottom: 16,
+  },
+  resultSummary: {
+    fontSize: 18,
+    color: '#5B4A3B',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   resultButtonPrimary: {
     marginTop: 28,
     minWidth: 220,
@@ -1288,5 +1453,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  resultButtonSecondaryText: { color: '#6B4A1F', fontSize: 17, fontWeight: '800' },
+  resultButtonSecondaryText: {
+    color: '#6B4A1F',
+    fontSize: 17,
+    fontWeight: '800',
+  },
 });
