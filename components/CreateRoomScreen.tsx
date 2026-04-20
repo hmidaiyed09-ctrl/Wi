@@ -39,16 +39,20 @@ const resolveRoomService = async (): Promise<RoomServiceModule> => {
 };
 
 const getCreateRoomErrorMessage = (error: unknown): string => {
+  const typedError = error as { code?: string; message?: string };
+  const errorCode = typedError?.code ? String(typedError.code) : 'unknown';
+  const errorMessage = typedError?.message ? String(typedError.message) : '';
+
   if (!(error instanceof Error)) {
     return 'Unable to create room right now. Please try again.';
   }
 
   const message = error.message.toLowerCase();
   if (message.includes('permission') || message.includes('denied')) {
-    return 'Firebase denied room creation. Please update Firestore rules.';
+    return `Firebase denied room creation (${errorCode}). Please update Firestore rules.`;
   }
   if (message.includes('network') || message.includes('offline') || message.includes('unavailable')) {
-    return 'Network issue while creating room. Please check your connection.';
+    return `Network issue while creating room (${errorCode}). ${errorMessage || 'Please check your connection.'}`;
   }
   if (message.includes('chunk') || message.includes('loading')) {
     return 'Room module failed to load. Refresh and try again.';
@@ -57,7 +61,7 @@ const getCreateRoomErrorMessage = (error: unknown): string => {
     return 'Room service failed to initialize. Please refresh the app.';
   }
 
-  return `Unable to create room right now: ${error.message}`;
+  return `Unable to create room right now (${errorCode}): ${error.message}`;
 };
 
 export default function CreateRoomScreen({ onBack, profileName }: Props) {

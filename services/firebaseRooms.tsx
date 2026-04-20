@@ -15,6 +15,9 @@ if (!firebase.apps.length) {
 }
 
 const firestore = firebase.firestore();
+firestore.settings({
+  experimentalAutoDetectLongPolling: true,
+});
 
 const ROOM_CODE_LENGTH = 6;
 const MAX_CREATE_ATTEMPTS = 8;
