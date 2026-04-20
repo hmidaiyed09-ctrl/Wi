@@ -1,6 +1,5 @@
-const firebaseModule = require('firebase/compat/app');
-const firebase: typeof import('firebase/compat/app') = firebaseModule.default ?? firebaseModule;
-require('firebase/compat/firestore');
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyA2yPx9b3DOxQAry7N8FzHIikZROFNZmsw',
