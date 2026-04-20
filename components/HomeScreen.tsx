@@ -21,7 +21,8 @@ type QuizHistoryEntry = {
 
 type Props = {
   onPlayAlone: () => void;
-  onPlayWithFriends: () => void;
+  onCreateRoom: () => void;
+  onJoinRoom: () => void;
   onSignOut: () => void;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
@@ -37,8 +38,9 @@ const CATEGORY_EMOJI_MAP: Record<string, string> = {
   custom: '✏️',
 };
 
-export default function HomeScreen({ onPlayAlone, onPlayWithFriends, onSignOut, activeTab, onTabChange, quizHistory }: Props) {
+export default function HomeScreen({ onPlayAlone, onCreateRoom, onJoinRoom, onSignOut, activeTab, onTabChange, quizHistory }: Props) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showFriendsChooser, setShowFriendsChooser] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -116,7 +118,7 @@ export default function HomeScreen({ onPlayAlone, onPlayWithFriends, onSignOut, 
 
           {/* With Friends */}
           <Pressable
-            onPress={onPlayWithFriends}
+            onPress={() => setShowFriendsChooser(true)}
             style={({ pressed }) => [
               styles.cardFriends,
               { opacity: pressed ? 0.9 : 1 },
@@ -141,6 +143,33 @@ export default function HomeScreen({ onPlayAlone, onPlayWithFriends, onSignOut, 
             </View>
           </Pressable>
         </View>
+        
+        <Modal visible={showFriendsChooser} transparent animationType="fade">
+          <Pressable style={styles.chooserBackdrop} onPress={() => setShowFriendsChooser(false)}>
+            <View style={styles.chooserCard}>
+              <Text style={styles.chooserTitle}>Play with Friends</Text>
+              <Text style={styles.chooserSubtitle}>Choose one option</Text>
+              <Pressable
+                style={({ pressed }) => [styles.chooserPrimary, { opacity: pressed ? 0.9 : 1 }]}
+                onPress={() => {
+                  setShowFriendsChooser(false);
+                  onCreateRoom();
+                }}
+              >
+                <Text style={styles.chooserPrimaryText}>Create Room</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.chooserSecondary, { opacity: pressed ? 0.9 : 1 }]}
+                onPress={() => {
+                  setShowFriendsChooser(false);
+                  onJoinRoom();
+                }}
+              >
+                <Text style={styles.chooserSecondaryText}>Join Room</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
 
 
 
@@ -467,6 +496,60 @@ const styles = StyleSheet.create({
   },
   qrEmoji: { fontSize: 12, color: '#555' },
   qrText: { fontSize: 11, fontWeight: '500', color: '#555' },
+  chooserBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  chooserCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    padding: 20,
+  },
+  chooserTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    textAlign: 'center',
+  },
+  chooserSubtitle: {
+    marginTop: 4,
+    marginBottom: 16,
+    fontSize: 13,
+    color: '#8A8A8A',
+    textAlign: 'center',
+  },
+  chooserPrimary: {
+    backgroundColor: '#FF8C00',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  chooserPrimaryText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  chooserSecondary: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFDDB3',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  chooserSecondaryText: {
+    color: '#D97706',
+    fontWeight: '700',
+    fontSize: 16,
+  },
 
   // Quick Actions
   quickActions: {

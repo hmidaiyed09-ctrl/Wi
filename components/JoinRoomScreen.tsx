@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -69,65 +70,70 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backButtonText}>← Back</Text>
-      </Pressable>
-
-      <Text style={styles.title}>Join Room</Text>
-      <Text style={styles.subtitle}>Enter the 6-digit code to join your friend</Text>
-
-      <Pressable disabled style={styles.scanPlaceholderButton}>
-        <Text style={styles.scanPlaceholderButtonText}>Scan with Camera (Coming soon)</Text>
-      </Pressable>
-
-      <View style={styles.codeCard}>
-        <Text style={styles.codeLabel}>ROOM CODE</Text>
-        <TextInput
-          style={styles.codeInput}
-          value={roomCode}
-          onChangeText={(text) => {
-            setRoomCode(text.replace(/\D/g, '').slice(0, 6));
-            if (error) {
-              setError('');
-            }
-          }}
-          keyboardType="number-pad"
-          maxLength={6}
-          placeholder="123456"
-          placeholderTextColor="#6E7395"
-        />
-      </View>
-
-      <Pressable
-        onPress={handleJoinRoom}
-        disabled={!canSubmit}
-        style={[
-          styles.joinButton,
-          !canSubmit && styles.joinButtonDisabled,
-        ]}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {isJoining ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.joinButtonText}>Join Room</Text>
-        )}
-      </Pressable>
+        <Pressable onPress={onBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </Pressable>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Text style={styles.title}>Join Room</Text>
+        <Text style={styles.subtitle}>Enter the 6-digit code to join your friend</Text>
 
-      {joinedRoom ? (
-        <View style={styles.joinedCard}>
-          <Text style={styles.joinedTitle}>Joined: {joinedRoom.roomName}</Text>
-          <Text style={styles.joinedCode}>Code: {joinedRoom.code}</Text>
-          <Text style={styles.joinedStatus}>Status: {joinedRoom.status}</Text>
-          <Text style={styles.playersTitle}>Players</Text>
-          {joinedRoom.players.map((player) => (
-            <Text key={player.id} style={styles.playerLine}>
-              • {player.name}{player.isHost ? ' (host)' : ''}
-            </Text>
-          ))}
+        <Pressable disabled style={styles.scanPlaceholderButton}>
+          <Text style={styles.scanPlaceholderButtonText}>Scan with Camera (Coming soon)</Text>
+        </Pressable>
+
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>ROOM CODE</Text>
+          <TextInput
+            style={styles.codeInput}
+            value={roomCode}
+            onChangeText={(text) => {
+              setRoomCode(text.replace(/\D/g, '').slice(0, 6));
+              if (error) {
+                setError('');
+              }
+            }}
+            keyboardType="number-pad"
+            maxLength={6}
+            placeholder="123456"
+            placeholderTextColor="#A1A1A1"
+          />
         </View>
-      ) : null}
+
+        <Pressable
+          onPress={handleJoinRoom}
+          disabled={!canSubmit}
+          style={[
+            styles.joinButton,
+            !canSubmit && styles.joinButtonDisabled,
+          ]}
+        >
+          {isJoining ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.joinButtonText}>Join Room</Text>
+          )}
+        </Pressable>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {joinedRoom ? (
+          <View style={styles.joinedCard}>
+            <Text style={styles.joinedTitle}>Joined: {joinedRoom.roomName}</Text>
+            <Text style={styles.joinedCode}>Code: {joinedRoom.code}</Text>
+            <Text style={styles.joinedStatus}>Status: {joinedRoom.status}</Text>
+            <Text style={styles.playersTitle}>Players</Text>
+            {joinedRoom.players.map((player) => (
+              <Text key={player.id} style={styles.playerLine}>
+                • {player.name}{player.isHost ? ' (host)' : ''}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
@@ -135,9 +141,12 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1B1D2A',
+    backgroundColor: '#FAFAFA',
+  },
+  scrollContent: {
     paddingTop: 50,
     paddingHorizontal: 20,
+    paddingBottom: 32,
   },
   backButton: {
     marginBottom: 16,
@@ -151,49 +160,49 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#1A1A1A',
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#8B8FAD',
+    color: '#7D7D7D',
     textAlign: 'center',
     marginBottom: 26,
   },
   scanPlaceholderButton: {
-    backgroundColor: '#2A2E4A',
+    backgroundColor: '#FFF5E8',
     borderWidth: 1,
-    borderColor: '#4A4F77',
+    borderColor: '#FFD8AA',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 18,
   },
   scanPlaceholderButtonText: {
-    color: '#AEB3D5',
+    color: '#FF8C00',
     fontWeight: '700',
   },
   codeCard: {
-    backgroundColor: '#252840',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     padding: 20,
   },
   codeLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#8B8FAD',
+    color: '#9B9B9B',
     letterSpacing: 1.3,
     marginBottom: 12,
   },
   codeInput: {
-    backgroundColor: '#1E2135',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#3B4065',
-    color: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FFCF99',
+    color: '#1A1A1A',
     fontSize: 28,
     letterSpacing: 6,
     textAlign: 'center',
@@ -209,7 +218,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   joinButtonDisabled: {
-    backgroundColor: '#33365A',
+    backgroundColor: '#E5E5E5',
   },
   joinButtonText: {
     color: '#FFFFFF',
@@ -224,14 +233,14 @@ const styles = StyleSheet.create({
   },
   joinedCard: {
     marginTop: 20,
-    backgroundColor: '#252840',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     padding: 18,
   },
   joinedTitle: {
-    color: '#FFFFFF',
+    color: '#1A1A1A',
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 4,
@@ -242,17 +251,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   joinedStatus: {
-    color: '#AEB3D5',
+    color: '#8A8A8A',
     marginBottom: 12,
   },
   playersTitle: {
-    color: '#8B8FAD',
+    color: '#999999',
     fontWeight: '700',
     letterSpacing: 1.1,
     marginBottom: 6,
   },
   playerLine: {
-    color: '#D8DCF8',
+    color: '#444444',
     marginBottom: 4,
   },
 });

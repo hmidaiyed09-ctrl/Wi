@@ -13,7 +13,6 @@ import SignUpScreen from './components/SignUpScreen';
 import HomeScreen from './components/HomeScreen';
 import DashboardScreen from './components/DashboardScreen';
 import SettingsScreen from './components/SettingsScreen';
-import FriendsMenuScreen from './components/FriendsMenuScreen';
 import CreateRoomScreen from './components/CreateRoomScreen';
 import JoinRoomScreen from './components/JoinRoomScreen';
 
@@ -34,7 +33,6 @@ type Screen =
   | 'generating'
   | 'quiz'
   | 'result'
-  | 'friendsMenu'
   | 'createRoom'
   | 'joinRoom';
 
@@ -351,20 +349,10 @@ export default function App() {
     setQuiz([]);
   };
 
-  if (screen === 'friendsMenu') {
-    return (
-      <FriendsMenuScreen
-        onBack={() => setScreen('home')}
-        onCreateRoom={() => setScreen('createRoom')}
-        onJoinRoom={() => setScreen('joinRoom')}
-      />
-    );
-  }
-
   if (screen === 'createRoom') {
     return (
       <CreateRoomScreen
-        onBack={() => setScreen('friendsMenu')}
+        onBack={() => setScreen('home')}
         profileName={profileName}
       />
     );
@@ -373,7 +361,7 @@ export default function App() {
   if (screen === 'joinRoom') {
     return (
       <JoinRoomScreen
-        onBack={() => setScreen('friendsMenu')}
+        onBack={() => setScreen('home')}
         profileName={profileName}
       />
     );
@@ -725,7 +713,8 @@ export default function App() {
   return (
     <HomeScreen
       onPlayAlone={() => setScreen('builder')}
-      onPlayWithFriends={() => setScreen('friendsMenu')}
+      onCreateRoom={() => setScreen('createRoom')}
+      onJoinRoom={() => setScreen('joinRoom')}
       onSignOut={handleSignOut}
       activeTab={activeTab}
       onTabChange={setActiveTab}

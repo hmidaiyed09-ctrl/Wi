@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import type { RoomState } from '../services/firebaseRooms';
 
 type Props = {
@@ -9,59 +9,53 @@ type Props = {
 
 export default function CreateRoomScreen({ onBack, profileName }: Props) {
   const [room, setRoom] = useState<RoomState | null>(null);
-  const [isCreating, setIsCreating] = useState(true);
+  const [roomNameInput, setRoomNameInput] = useState('myfriend');
+  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    let unsubscribe: (() => void) | null = null;
-
-    const setupRoom = async () => {
-      setIsCreating(true);
-      setError('');
-
-      try {
-        const roomService = await import('../services/firebaseRooms');
-        const createdRoom = await roomService.createRoom(profileName, 'myfriend');
-
-        if (!isMounted) {
-          return;
-        }
-
-        setRoom(createdRoom);
-        unsubscribe = roomService.subscribeToRoom(
-          createdRoom.code,
-          (updatedRoom) => {
-            if (isMounted) {
-              setRoom(updatedRoom);
-            }
-          },
-          () => {
-            if (isMounted) {
-              setError('Live updates are temporarily unavailable.');
-            }
-          },
-        );
-      } catch {
-        if (isMounted) {
-          setError('Unable to create room right now. Please try again.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsCreating(false);
-        }
-      }
-    };
-
-    setupRoom();
-
     return () => {
-      isMounted = false;
-      if (unsubscribe) {
-        unsubscribe();
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
       }
     };
-  }, [profileName]);
+  }, []);
+
+  const handleCreateRoom = async () => {
+    const trimmedName = roomNameInput.trim();
+    if (!trimmedName) {
+      setError('Please enter a room name first.');
+      return;
+    }
+
+    setIsCreating(true);
+    setError('');
+
+    try {
+      const roomService = await import('../services/firebaseRooms');
+      const createdRoom = await roomService.createRoom(profileName, trimmedName);
+      setRoom(createdRoom);
+
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+
+      unsubscribeRef.current = roomService.subscribeToRoom(
+        createdRoom.code,
+        (updatedRoom) => {
+          setRoom(updatedRoom);
+        },
+        () => {
+          setError('Live updates are temporarily unavailable.');
+        },
+      );
+    } catch {
+      setError('Unable to create room right now. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const players = room?.players ?? [];
   const playerCount = players.length;
@@ -71,83 +65,126 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backButtonText}>← Back</Text>
-      </Pressable>
-
-      <Text style={styles.title}>Create Room</Text>
-      <Text style={styles.subtitle}>Your friends can join with the room code</Text>
-
-      <View style={styles.roomNameCard}>
-        <Text style={styles.roomNameLabel}>ROOM NAME</Text>
-        <Text style={styles.roomNameValue}>{roomName}</Text>
-      </View>
-
-      {/* Room Code Display */}
-      <View style={styles.codeCard}>
-        <Text style={styles.codeLabel}>ROOM CODE</Text>
-        <Text style={styles.codeText}>{roomCode}</Text>
-      </View>
-
-      {/* QR Code Placeholder */}
-      <View style={styles.qrCard}>
-        <View style={styles.qrPlaceholder}>
-          {isCreating ? <ActivityIndicator color="#FF8C00" /> : <Text style={styles.qrPlaceholderText}>QR COMING SOON</Text>}
-        </View>
-        <Text style={styles.qrHint}>QR scan integration will be added in a later sprint</Text>
-      </View>
-
-      {/* Host Profile */}
-      <View style={styles.profileCard}>
-        <Text style={styles.sectionLabel}>HOST PROFILE</Text>
-        <View style={styles.profileRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(hostProfile?.name ?? profileName).slice(0, 1).toUpperCase()}</Text>
-          </View>
-          <View>
-            <Text style={styles.profileName}>{hostProfile?.name ?? profileName}</Text>
-            <Text style={styles.profileRole}>Room host</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Waiting Status */}
-      <View style={styles.waitingCard}>
-        <ActivityIndicator size="small" color="#FF8C00" />
-        <Text style={styles.waitingText}>Waiting for players...</Text>
-        <View style={styles.playerRow}>
-          <Text style={styles.playerEmoji}>👤</Text>
-          <Text style={styles.playerCount}>{playerCount} player{playerCount > 1 ? 's' : ''} in room</Text>
-        </View>
-        {players.map((player) => (
-          <Text key={player.id} style={styles.playerLine}>
-            • {player.name}{player.isHost ? ' (host)' : ''}
-          </Text>
-        ))}
-      </View>
-
-      {/* Waiting Options */}
-      <View style={styles.optionsCard}>
-        <Text style={styles.sectionLabel}>WAITING OPTIONS</Text>
-        <Text style={styles.optionLine}>Auto-start match when 2+ players (coming soon)</Text>
-        <Text style={styles.optionLine}>Kick/ban controls (coming soon)</Text>
-      </View>
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      {/* Start Game Button */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.startButton,
-          { opacity: pressed ? 0.85 : 1 },
-          playerCount < 2 && styles.startButtonDisabled,
-        ]}
-        disabled={playerCount < 2}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.startButtonText}>
-          {playerCount < 2 ? 'Waiting for more players...' : 'Start Game'}
-        </Text>
-      </Pressable>
+        <Pressable onPress={onBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </Pressable>
+
+        <Text style={styles.title}>Create Room</Text>
+        <Text style={styles.subtitle}>Set your room name, then create it</Text>
+
+        {!room ? (
+          <View style={styles.setupCard}>
+            <Text style={styles.sectionLabel}>ROOM NAME</Text>
+            <TextInput
+              value={roomNameInput}
+              onChangeText={(text) => {
+                setRoomNameInput(text);
+                if (error) {
+                  setError('');
+                }
+              }}
+              placeholder="myfriend"
+              placeholderTextColor="#A1A1A1"
+              style={styles.roomNameInput}
+            />
+            <Pressable
+              onPress={handleCreateRoom}
+              disabled={isCreating}
+              style={({ pressed }) => [
+                styles.createRoomButton,
+                { opacity: pressed ? 0.9 : 1 },
+                isCreating && styles.startButtonDisabled,
+              ]}
+            >
+              {isCreating ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.createRoomButtonText}>Create Room</Text>
+              )}
+            </Pressable>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          </View>
+        ) : (
+          <>
+            <View style={styles.roomNameCard}>
+              <Text style={styles.roomNameLabel}>ROOM NAME</Text>
+              <View style={styles.roomNamePill}>
+                <Text style={styles.roomNameValue}>{roomName}</Text>
+              </View>
+            </View>
+
+            {/* Room Code Display */}
+            <View style={styles.codeCard}>
+              <Text style={styles.codeLabel}>ROOM CODE</Text>
+              <Text style={styles.codeText}>{roomCode}</Text>
+            </View>
+
+            {/* QR Code Placeholder */}
+            <View style={styles.qrCard}>
+              <View style={styles.qrPlaceholder}>
+                {isCreating ? <ActivityIndicator color="#FF8C00" /> : <Text style={styles.qrPlaceholderText}>QR COMING SOON</Text>}
+              </View>
+              <Text style={styles.qrHint}>QR scan integration will be added in a later sprint</Text>
+            </View>
+
+            {/* Host Profile */}
+            <View style={styles.profileCard}>
+              <Text style={styles.sectionLabel}>HOST PROFILE</Text>
+              <View style={styles.profileRow}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{(hostProfile?.name ?? profileName).slice(0, 1).toUpperCase()}</Text>
+                </View>
+                <View>
+                  <Text style={styles.profileName}>{hostProfile?.name ?? profileName}</Text>
+                  <Text style={styles.profileRole}>Room host</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Waiting Status */}
+            <View style={styles.waitingCard}>
+              <ActivityIndicator size="small" color="#FF8C00" />
+              <Text style={styles.waitingText}>Waiting for players...</Text>
+              <View style={styles.playerRow}>
+                <Text style={styles.playerEmoji}>👤</Text>
+                <Text style={styles.playerCount}>{playerCount} player{playerCount > 1 ? 's' : ''} in room</Text>
+              </View>
+              {players.map((player) => (
+                <Text key={player.id} style={styles.playerLine}>
+                  • {player.name}{player.isHost ? ' (host)' : ''}
+                </Text>
+              ))}
+            </View>
+
+            {/* Waiting Options */}
+            <View style={styles.optionsCard}>
+              <Text style={styles.sectionLabel}>WAITING OPTIONS</Text>
+              <Text style={styles.optionLine}>Auto-start match when 2+ players (coming soon)</Text>
+              <Text style={styles.optionLine}>Kick/ban controls (coming soon)</Text>
+            </View>
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            {/* Start Game Button */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.startButton,
+                { opacity: pressed ? 0.85 : 1 },
+                playerCount < 2 && styles.startButtonDisabled,
+              ]}
+              disabled={playerCount < 2}
+            >
+              <Text style={styles.startButtonText}>
+                {playerCount < 2 ? 'Waiting for more players...' : 'Start Game'}
+              </Text>
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -155,10 +192,12 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1B1D2A',
+    backgroundColor: '#FAFAFA',
+  },
+  scrollContent: {
     paddingTop: 50,
     paddingHorizontal: 20,
-    alignItems: 'center',
+    paddingBottom: 32,
   },
   backButton: {
     marginBottom: 16,
@@ -172,21 +211,53 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#1A1A1A',
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#8B8FAD',
+    color: '#7D7D7D',
     textAlign: 'center',
     marginBottom: 16,
   },
-  roomNameCard: {
-    backgroundColor: '#252840',
+  setupCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
+    padding: 18,
+    marginBottom: 20,
+    width: '100%',
+  },
+  roomNameInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFCF99',
+    color: '#1A1A1A',
+    fontSize: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+    fontWeight: '700',
+  },
+  createRoomButton: {
+    backgroundColor: '#FF8C00',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  createRoomButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  roomNameCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     paddingVertical: 14,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -196,20 +267,26 @@ const styles = StyleSheet.create({
   roomNameLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#8B8FAD',
+    color: '#9B9B9B',
     letterSpacing: 1.2,
     marginBottom: 6,
   },
+  roomNamePill: {
+    backgroundColor: '#FF8C00',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
   roomNameValue: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   codeCard: {
-    backgroundColor: '#252840',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     paddingVertical: 20,
     paddingHorizontal: 40,
     alignItems: 'center',
@@ -219,7 +296,7 @@ const styles = StyleSheet.create({
   codeLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8B8FAD',
+    color: '#9B9B9B',
     letterSpacing: 2,
     marginBottom: 8,
   },
@@ -230,10 +307,10 @@ const styles = StyleSheet.create({
     letterSpacing: 8,
   },
   qrCard: {
-    backgroundColor: '#252840',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     padding: 24,
     alignItems: 'center',
     marginBottom: 24,
@@ -244,15 +321,15 @@ const styles = StyleSheet.create({
     height: 190,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#4A4E70',
+    borderColor: '#FFD6A4',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    backgroundColor: '#1F2235',
+    backgroundColor: '#FFF8EF',
   },
   qrPlaceholderText: {
-    color: '#9DA3CC',
+    color: '#FF8C00',
     fontWeight: '700',
     letterSpacing: 1,
   },
@@ -260,13 +337,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 13,
     fontWeight: '600',
-    color: '#8B8FAD',
+    color: '#8A8A8A',
+    textAlign: 'center',
   },
   profileCard: {
-    backgroundColor: '#252840',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     padding: 18,
     marginBottom: 16,
     width: '100%',
@@ -274,7 +352,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#8B8FAD',
+    color: '#999999',
     letterSpacing: 1.4,
     marginBottom: 12,
   },
@@ -299,18 +377,18 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1A1A',
   },
   profileRole: {
     marginTop: 2,
     fontSize: 13,
-    color: '#A6ABCB',
+    color: '#8A8A8A',
   },
   waitingCard: {
-    backgroundColor: '#252840',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     padding: 20,
     alignItems: 'center',
     gap: 10,
@@ -320,7 +398,7 @@ const styles = StyleSheet.create({
   waitingText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1A1A',
   },
   playerRow: {
     flexDirection: 'row',
@@ -333,24 +411,24 @@ const styles = StyleSheet.create({
   playerCount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8B8FAD',
+    color: '#6B6B6B',
   },
   playerLine: {
     fontSize: 13,
-    color: '#C7CBEA',
+    color: '#4F4F4F',
   },
   optionsCard: {
-    backgroundColor: '#252840',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#33365A',
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
     padding: 18,
     marginBottom: 16,
     width: '100%',
   },
   optionLine: {
     fontSize: 13,
-    color: '#C7CBEA',
+    color: '#5C5C5C',
     marginBottom: 6,
   },
   errorText: {
@@ -368,7 +446,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startButtonDisabled: {
-    backgroundColor: '#33365A',
+    backgroundColor: '#E5E5E5',
   },
   startButtonText: {
     fontSize: 18,
