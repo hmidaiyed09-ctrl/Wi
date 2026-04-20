@@ -21,7 +21,7 @@ module.exports = {
     rules: [
       {
         test: /\.[jt]sx?$/,
-        exclude: /node_modules\/(?!react-native-web|@react-native)/,
+        exclude: /node_modules[\\/](?!react-native-web|@react-native)/,
         use: {
           loader: 'babel-loader',
           options: {
