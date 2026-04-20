@@ -13,6 +13,9 @@ import SignUpScreen from './components/SignUpScreen';
 import HomeScreen from './components/HomeScreen';
 import DashboardScreen from './components/DashboardScreen';
 import SettingsScreen from './components/SettingsScreen';
+import FriendsMenuScreen from './components/FriendsMenuScreen';
+import CreateRoomScreen from './components/CreateRoomScreen';
+import JoinRoomScreen from './components/JoinRoomScreen';
 
 const API_BASE_URL = 'https://gen.pollinations.ai/v1';
 const API_KEY = 'dummy';
@@ -22,7 +25,18 @@ type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 type QuizLanguage = 'ARABIC' | 'ENGLISH';
 type QuizCategory = 'entertainment' | 'sports' | 'general_knowledge' | 'science' | 'history' | 'custom';
 type Tab = 'home' | 'dashboard' | 'settings';
-type Screen = 'welcome' | 'login' | 'signup' | 'home' | 'builder' | 'generating' | 'quiz' | 'result';
+type Screen =
+  | 'welcome'
+  | 'login'
+  | 'signup'
+  | 'home'
+  | 'builder'
+  | 'generating'
+  | 'quiz'
+  | 'result'
+  | 'friendsMenu'
+  | 'createRoom'
+  | 'joinRoom';
 
 type QuizQuestion = {
   id: string;
@@ -57,15 +71,6 @@ const CATEGORY_OPTIONS: { key: QuizCategory; label: string; emoji: string }[] = 
   { key: 'custom', label: 'Custom', emoji: '✏️' },
 ];
 
-const CATEGORY_EMOJI_MAP: Record<string, string> = {
-  entertainment: '🎬',
-  sports: '⚽',
-  general_knowledge: '🧠',
-  science: '🔬',
-  history: '📜',
-  custom: '✏️',
-};
-
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [activeTab, setActiveTab] = useState<Tab>('home');
@@ -83,6 +88,7 @@ export default function App() {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [quizHistory, setQuizHistory] = useState<QuizHistoryEntry[]>([]);
   const [lastQuizCategory, setLastQuizCategory] = useState('');
+  const [profileName] = useState('User');
 
   const resetBuilder = () => {
     setNumQues(10);
@@ -345,6 +351,34 @@ export default function App() {
     setQuiz([]);
   };
 
+  if (screen === 'friendsMenu') {
+    return (
+      <FriendsMenuScreen
+        onBack={() => setScreen('home')}
+        onCreateRoom={() => setScreen('createRoom')}
+        onJoinRoom={() => setScreen('joinRoom')}
+      />
+    );
+  }
+
+  if (screen === 'createRoom') {
+    return (
+      <CreateRoomScreen
+        onBack={() => setScreen('friendsMenu')}
+        profileName={profileName}
+      />
+    );
+  }
+
+  if (screen === 'joinRoom') {
+    return (
+      <JoinRoomScreen
+        onBack={() => setScreen('friendsMenu')}
+        profileName={profileName}
+      />
+    );
+  }
+
   if (screen === 'login') {
     return (
       <LoginScreen
@@ -564,7 +598,6 @@ export default function App() {
 
   // builder — dark room design
   if (screen === 'builder') {
-    const currentCatOption = CATEGORY_OPTIONS.find((c) => c.key === selectedCategory);
     return (
       <View style={styles.builderContainer}>
         <ScrollView contentContainerStyle={styles.builderContent}>
@@ -692,6 +725,7 @@ export default function App() {
   return (
     <HomeScreen
       onPlayAlone={() => setScreen('builder')}
+      onPlayWithFriends={() => setScreen('friendsMenu')}
       onSignOut={handleSignOut}
       activeTab={activeTab}
       onTabChange={setActiveTab}

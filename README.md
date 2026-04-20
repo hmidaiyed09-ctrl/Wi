@@ -255,6 +255,59 @@ if (activeTab === 'dashboard') {
 
 ---
 
+## 📋 Sprint 4 — Friend Play (Firebase Rooms)
+
+**Date :** 20 Avril 2026  
+**Objectif :** Mettre en place la base multijoueur "Play with Friends" avec Firebase : création de room, entrée par code, écran d'attente hôte, et scan caméra en placeholder.
+
+---
+
+### US-11 : Accès au mode Friends depuis la Home
+
+**En tant qu'** utilisateur,  
+**je veux** cliquer sur "With Friends" depuis la Home pour accéder à un menu dédié,  
+**afin de** choisir rapidement entre créer une room et rejoindre une room existante.
+
+**Critères d'acceptation :**
+- ✅ La carte "With Friends" de la Home est cliquable
+- ✅ L'écran "Play with Friends" propose 2 options : **Create Room** et **Join Room**
+- ✅ Le bouton retour depuis ce menu ramène à la Home
+
+---
+
+### US-12 : Création de room "myfriend" avec état d'attente (Host)
+
+**En tant qu'** hôte,  
+**je veux** créer une room nommée **myfriend** et voir son code, mon profil, et l'état d'attente des joueurs,  
+**afin de** partager la room avec mes amis et préparer la partie.
+
+**Critères d'acceptation :**
+- ✅ La room créée utilise Firebase (Firestore) et génère un code à 6 chiffres
+- ✅ Le nom de room **myfriend** est affiché en blanc
+- ✅ L'hôte voit :
+  - code de room
+  - profil hôte
+  - nombre de joueurs connectés
+  - liste des joueurs de la room
+- ✅ L'écran contient des options d'attente (placeholder)
+- ✅ Le bouton "Start Game" reste désactivé tant qu'il y a moins de 2 joueurs
+
+---
+
+### US-13 : Rejoindre une room par code (+ scan caméra en placeholder)
+
+**En tant qu'** joueur,  
+**je veux** rejoindre une room via un code saisi,  
+**afin de** entrer dans la partie d'un ami même sans QR.
+
+**Critères d'acceptation :**
+- ✅ Un écran **Join Room** permet la saisie d'un code à 6 chiffres
+- ✅ En cas de code valide, le joueur rejoint la room Firebase et voit les infos de room/joueurs
+- ✅ Les erreurs sont gérées (code invalide, room introuvable)
+- ✅ L'option **Scan with Camera** est présente mais non active (coming soon)
+
+---
+
 ## 🏗️ Architecture Technique
 
 ### Fichiers Modifiés
