@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  ScrollView,
+  TextInput,
+  Modal,
+} from 'react-native';
+import { QRCodeSVG } from 'qrcode.react';
 import type { RoomState } from '../services/firebaseRooms';
 
 type Props = {
@@ -7,11 +17,35 @@ type Props = {
   profileName: string;
 };
 
+const MAX_PLAYERS = 8;
+
+const getCreateRoomErrorMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return 'Unable to create room right now. Please try again.';
+  }
+
+  const message = error.message.toLowerCase();
+  if (message.includes('permission') || message.includes('denied')) {
+    return 'Firebase denied room creation. Please update Firestore rules.';
+  }
+  if (message.includes('network') || message.includes('offline') || message.includes('unavailable')) {
+    return 'Network issue while creating room. Please check your connection.';
+  }
+  if (message.includes('chunk') || message.includes('loading')) {
+    return 'Room module failed to load. Refresh and try again.';
+  }
+
+  return `Unable to create room right now: ${error.message}`;
+};
+
 export default function CreateRoomScreen({ onBack, profileName }: Props) {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [roomNameInput, setRoomNameInput] = useState('myfriend');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
+  const [autoStartEnabled, setAutoStartEnabled] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -46,12 +80,12 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
         (updatedRoom) => {
           setRoom(updatedRoom);
         },
-        () => {
-          setError('Live updates are temporarily unavailable.');
+        (snapshotError) => {
+          setError(`Live updates unavailable: ${snapshotError.message}`);
         },
       );
-    } catch {
-      setError('Unable to create room right now. Please try again.');
+    } catch (createError) {
+      setError(getCreateRoomErrorMessage(createError));
     } finally {
       setIsCreating(false);
     }
@@ -59,14 +93,13 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
 
   const players = room?.players ?? [];
   const playerCount = players.length;
-  const hostProfile = players.find((player) => player.isHost);
-  const roomName = room?.roomName ?? 'myfriend';
+  const roomName = room?.roomName ?? (roomNameInput.trim() || 'myfriend');
   const roomCode = room?.code ?? '------';
 
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, room ? styles.scrollContentWithFooter : null]}
         showsVerticalScrollIndicator={false}
       >
         <Pressable onPress={onBack} style={styles.backButton}>
@@ -74,7 +107,9 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
         </Pressable>
 
         <Text style={styles.title}>Create Room</Text>
-        <Text style={styles.subtitle}>Set your room name, then create it</Text>
+        <Text style={styles.subtitle}>
+          {room ? 'Share your lobby code and wait for players' : 'Set lobby name and create your room'}
+        </Text>
 
         {!room ? (
           <View style={styles.setupCard}>
@@ -90,6 +125,8 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
               placeholder="myfriend"
               placeholderTextColor="#A1A1A1"
               style={styles.roomNameInput}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
             <Pressable
               onPress={handleCreateRoom}
@@ -97,7 +134,7 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
               style={({ pressed }) => [
                 styles.createRoomButton,
                 { opacity: pressed ? 0.9 : 1 },
-                isCreating && styles.startButtonDisabled,
+                isCreating && styles.buttonDisabled,
               ]}
             >
               {isCreating ? (
@@ -110,81 +147,101 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
           </View>
         ) : (
           <>
-            <View style={styles.roomNameCard}>
-              <Text style={styles.roomNameLabel}>ROOM NAME</Text>
-              <View style={styles.roomNamePill}>
-                <Text style={styles.roomNameValue}>{roomName}</Text>
+            <View style={styles.inviteHubCard}>
+              <Text style={styles.lobbyLabel}>Lobby: {roomName}</Text>
+              <View style={styles.codeRow}>
+                <Text style={styles.codeText}>{roomCode}</Text>
+                <Pressable style={styles.qrIconButton} onPress={() => setShowQrModal(true)}>
+                  <Text style={styles.qrIconText}>QR</Text>
+                </Pressable>
               </View>
+              <Text style={styles.inviteHint}>Share this code or open QR to invite friends</Text>
             </View>
 
-            {/* Room Code Display */}
-            <View style={styles.codeCard}>
-              <Text style={styles.codeLabel}>ROOM CODE</Text>
-              <Text style={styles.codeText}>{roomCode}</Text>
-            </View>
+            <View style={styles.playerLoungeCard}>
+              <Text style={styles.playerHeader}>Players ({playerCount}/{MAX_PLAYERS})</Text>
+              <View style={styles.playerGrid}>
+                {Array.from({ length: MAX_PLAYERS }).map((_, index) => {
+                  const player = players[index];
+                  if (player) {
+                    return (
+                      <View key={player.id} style={styles.playerSlot}>
+                        <View style={styles.playerAvatarFilled}>
+                          <Text style={styles.playerAvatarText}>{player.name.slice(0, 1).toUpperCase()}</Text>
+                          {player.isHost ? <Text style={styles.hostCrown}>👑</Text> : null}
+                        </View>
+                        <Text style={styles.playerName} numberOfLines={1}>
+                          {player.name}
+                        </Text>
+                      </View>
+                    );
+                  }
 
-            {/* QR Code Placeholder */}
-            <View style={styles.qrCard}>
-              <View style={styles.qrPlaceholder}>
-                {isCreating ? <ActivityIndicator color="#FF8C00" /> : <Text style={styles.qrPlaceholderText}>QR COMING SOON</Text>}
+                  return (
+                    <View key={`empty-${index}`} style={styles.playerSlot}>
+                      <View style={styles.playerAvatarEmpty}>
+                        <Text style={styles.emptySlotText}>+</Text>
+                      </View>
+                      <Text style={styles.emptySlotLabel}>Open</Text>
+                    </View>
+                  );
+                })}
               </View>
-              <Text style={styles.qrHint}>QR scan integration will be added in a later sprint</Text>
-            </View>
-
-            {/* Host Profile */}
-            <View style={styles.profileCard}>
-              <Text style={styles.sectionLabel}>HOST PROFILE</Text>
-              <View style={styles.profileRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{(hostProfile?.name ?? profileName).slice(0, 1).toUpperCase()}</Text>
-                </View>
-                <View>
-                  <Text style={styles.profileName}>{hostProfile?.name ?? profileName}</Text>
-                  <Text style={styles.profileRole}>Room host</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Waiting Status */}
-            <View style={styles.waitingCard}>
-              <ActivityIndicator size="small" color="#FF8C00" />
-              <Text style={styles.waitingText}>Waiting for players...</Text>
-              <View style={styles.playerRow}>
-                <Text style={styles.playerEmoji}>👤</Text>
-                <Text style={styles.playerCount}>{playerCount} player{playerCount > 1 ? 's' : ''} in room</Text>
-              </View>
-              {players.map((player) => (
-                <Text key={player.id} style={styles.playerLine}>
-                  • {player.name}{player.isHost ? ' (host)' : ''}
-                </Text>
-              ))}
-            </View>
-
-            {/* Waiting Options */}
-            <View style={styles.optionsCard}>
-              <Text style={styles.sectionLabel}>WAITING OPTIONS</Text>
-              <Text style={styles.optionLine}>Auto-start match when 2+ players (coming soon)</Text>
-              <Text style={styles.optionLine}>Kick/ban controls (coming soon)</Text>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-            {/* Start Game Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.startButton,
-                { opacity: pressed ? 0.85 : 1 },
-                playerCount < 2 && styles.startButtonDisabled,
-              ]}
-              disabled={playerCount < 2}
-            >
-              <Text style={styles.startButtonText}>
-                {playerCount < 2 ? 'Waiting for more players...' : 'Start Game'}
-              </Text>
-            </Pressable>
           </>
         )}
       </ScrollView>
+
+      {room ? (
+        <View style={styles.footerBar}>
+          <Pressable style={styles.settingsButton} onPress={() => setShowSettingsSheet(true)}>
+            <Text style={styles.settingsIcon}>⚙️</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.startButton,
+              playerCount < 2 && styles.buttonDisabled,
+            ]}
+            disabled={playerCount < 2}
+          >
+            <Text style={styles.startButtonText}>START GAME</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      <Modal visible={showQrModal} transparent animationType="fade">
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowQrModal(false)}>
+          <Pressable style={styles.qrModalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Invite QR</Text>
+            <View style={styles.qrCanvas}>
+              <QRCodeSVG value={roomCode} size={170} bgColor="#FFFFFF" fgColor="#FF8C00" />
+            </View>
+            <Text style={styles.modalHint}>Code: {roomCode}</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={showSettingsSheet} transparent animationType="slide">
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={() => setShowSettingsSheet(false)} />
+          <View style={styles.sheetCard}>
+            <Text style={styles.sheetTitle}>Lobby Settings</Text>
+            <Pressable
+              style={styles.sheetRow}
+              onPress={() => setAutoStartEnabled((prev) => !prev)}
+            >
+              <Text style={styles.sheetRowLabel}>Auto-start when 2+ players</Text>
+              <Text style={styles.sheetRowValue}>{autoStartEnabled ? 'ON' : 'OFF'}</Text>
+            </Pressable>
+            <View style={styles.sheetRow}>
+              <Text style={styles.sheetRowLabel}>Kick/Ban controls</Text>
+              <Text style={styles.sheetRowValueSoon}>Soon</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -197,7 +254,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 24,
+  },
+  scrollContentWithFooter: {
+    paddingBottom: 130,
   },
   backButton: {
     marginBottom: 16,
@@ -223,12 +283,17 @@ const styles = StyleSheet.create({
   },
   setupCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1.5,
     borderColor: '#ECECEC',
     padding: 18,
-    marginBottom: 20,
-    width: '100%',
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#999999',
+    letterSpacing: 1.4,
+    marginBottom: 10,
   },
   roomNameInput: {
     backgroundColor: '#FFFFFF',
@@ -253,204 +318,253 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  roomNameCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+  inviteHubCard: {
+    backgroundColor: '#FDFDFD',
+    borderRadius: 22,
     borderWidth: 1.5,
     borderColor: '#ECECEC',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
+    padding: 20,
     marginBottom: 16,
-    width: '100%',
   },
-  roomNameLabel: {
-    fontSize: 11,
+  lobbyLabel: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#9B9B9B',
-    letterSpacing: 1.2,
-    marginBottom: 6,
+    color: '#6B6B6B',
+    marginBottom: 10,
   },
-  roomNamePill: {
-    backgroundColor: '#FF8C00',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  roomNameValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  codeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#ECECEC',
-    paddingVertical: 20,
-    paddingHorizontal: 40,
+  codeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
-    width: '100%',
-  },
-  codeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9B9B9B',
-    letterSpacing: 2,
-    marginBottom: 8,
+    justifyContent: 'space-between',
   },
   codeText: {
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: '900',
     color: '#FF8C00',
     letterSpacing: 8,
   },
-  qrCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#ECECEC',
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-    width: '100%',
-  },
-  qrPlaceholder: {
-    width: 190,
-    height: 190,
-    borderRadius: 14,
-    borderWidth: 2,
+  qrIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFF4E6',
+    borderWidth: 1,
     borderColor: '#FFD6A4',
-    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#FFF8EF',
   },
-  qrPlaceholderText: {
-    color: '#FF8C00',
-    fontWeight: '700',
-    letterSpacing: 1,
+  qrIconText: {
+    color: '#D97706',
+    fontWeight: '800',
+    fontSize: 12,
   },
-  qrHint: {
-    marginTop: 12,
-    fontSize: 13,
-    fontWeight: '600',
+  inviteHint: {
+    marginTop: 8,
     color: '#8A8A8A',
-    textAlign: 'center',
+    fontSize: 12,
   },
-  profileCard: {
+  playerLoungeCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1.5,
     borderColor: '#ECECEC',
     padding: 18,
-    marginBottom: 16,
-    width: '100%',
   },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#999999',
-    letterSpacing: 1.4,
+  playerHeader: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1A1A1A',
     marginBottom: 12,
   },
-  profileRow: {
+  playerGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  playerSlot: {
+    width: '23%',
+    alignItems: 'center',
+  },
+  playerAvatarFilled: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FF8C00',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF8C00',
+    position: 'relative',
   },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1B1D2A',
+  playerAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
   },
-  profileName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1A1A',
+  hostCrown: {
+    position: 'absolute',
+    top: -10,
+    right: -4,
+    fontSize: 14,
   },
-  profileRole: {
-    marginTop: 2,
-    fontSize: 13,
-    color: '#8A8A8A',
+  playerName: {
+    marginTop: 6,
+    fontSize: 11,
+    color: '#555555',
+    fontWeight: '600',
+    maxWidth: 60,
+    textAlign: 'center',
   },
-  waitingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+  playerAvatarEmpty: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 1.5,
-    borderColor: '#ECECEC',
-    padding: 20,
+    borderStyle: 'dashed',
+    borderColor: '#D8D8D8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FAFAFA',
+  },
+  emptySlotText: {
+    fontSize: 24,
+    color: '#B7B7B7',
+    fontWeight: '500',
+  },
+  emptySlotLabel: {
+    marginTop: 6,
+    fontSize: 11,
+    color: '#B0B0B0',
+    fontWeight: '600',
+  },
+  footerBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 24,
-    width: '100%',
-  },
-  waitingText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  playerEmoji: {
-    fontSize: 16,
-  },
-  playerCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B6B6B',
-  },
-  playerLine: {
-    fontSize: 13,
-    color: '#4F4F4F',
-  },
-  optionsCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1.5,
+    borderRadius: 24,
+    borderWidth: 1,
     borderColor: '#ECECEC',
-    padding: 18,
-    marginBottom: 16,
-    width: '100%',
+    padding: 10,
   },
-  optionLine: {
-    fontSize: 13,
-    color: '#5C5C5C',
-    marginBottom: 6,
+  settingsButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFF6EA',
+    borderWidth: 1,
+    borderColor: '#FFDDB6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  errorText: {
-    marginBottom: 12,
-    color: '#FF6B6B',
-    fontWeight: '600',
-    textAlign: 'center',
+  settingsIcon: {
+    fontSize: 20,
   },
   startButton: {
+    flex: 1,
     backgroundColor: '#FF8C00',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    width: '100%',
+    borderRadius: 26,
+    paddingVertical: 16,
     alignItems: 'center',
   },
-  startButtonDisabled: {
-    backgroundColor: '#E5E5E5',
-  },
   startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  buttonDisabled: {
+    backgroundColor: '#D8D8D8',
+    borderColor: '#D8D8D8',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  qrModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  qrCanvas: {
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFE0BB',
+  },
+  modalHint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#888888',
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheetCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 24,
+    borderTopWidth: 1,
+    borderColor: '#ECECEC',
+  },
+  sheetTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#1A1A1A',
+    marginBottom: 12,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  sheetRowLabel: {
+    fontSize: 14,
+    color: '#3D3D3D',
+    fontWeight: '600',
+  },
+  sheetRowValue: {
+    fontSize: 13,
+    color: '#FF8C00',
+    fontWeight: '800',
+  },
+  sheetRowValueSoon: {
+    fontSize: 13,
+    color: '#9B9B9B',
+    fontWeight: '700',
+  },
+  errorText: {
+    marginTop: 10,
+    color: '#D23A3A',
+    fontWeight: '700',
+    textAlign: 'center',
+    fontSize: 12,
   },
 });
