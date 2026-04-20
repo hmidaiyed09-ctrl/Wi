@@ -17,12 +17,13 @@ type Props = {
 };
 
 const getSignUpErrorMessage = (error: unknown): string => {
-  const code = typeof error === 'object'
-    && error !== null
-    && 'code' in error
-    && typeof (error as { code?: unknown }).code === 'string'
-    ? String((error as { code: string }).code)
-    : '';
+  const code =
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as { code?: unknown }).code === 'string'
+      ? String((error as { code: string }).code)
+      : '';
 
   const message = error instanceof Error ? error.message : '';
 
@@ -57,7 +58,11 @@ const getSignUpErrorMessage = (error: unknown): string => {
   return 'Sign-up failed. Please try again.';
 };
 
-export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: Props) {
+export default function SignUpScreen({
+  onSignUp,
+  onGoogleSignUp,
+  onGoToLogin,
+}: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -101,10 +106,17 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
     ]).start();
   }, [logoScale, logoOpacity, formTranslateY, formOpacity]);
 
-  const clearError = () => { if (error) setError(''); };
+  const clearError = () => {
+    if (error) setError('');
+  };
 
   const handleSignUp = async () => {
-    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (
+      !name.trim() ||
+      !email.trim() ||
+      !password.trim() ||
+      !confirmPassword.trim()
+    ) {
       setError('Please fill in all fields.');
       return;
     }
@@ -162,7 +174,10 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
         <Animated.View
           style={[
             styles.card,
-            { opacity: formOpacity, transform: [{ translateY: formTranslateY }] },
+            {
+              opacity: formOpacity,
+              transform: [{ translateY: formTranslateY }],
+            },
           ]}
         >
           <Text style={styles.cardTitle}>Sign Up</Text>
@@ -171,7 +186,10 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
           <TextInput
             style={styles.input}
             value={name}
-            onChangeText={(t) => { setName(t); clearError(); }}
+            onChangeText={t => {
+              setName(t);
+              clearError();
+            }}
             placeholder="Full Name"
             placeholderTextColor="rgba(255,255,255,0.5)"
           />
@@ -179,7 +197,10 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
           <TextInput
             style={styles.input}
             value={email}
-            onChangeText={(t) => { setEmail(t); clearError(); }}
+            onChangeText={t => {
+              setEmail(t);
+              clearError();
+            }}
             placeholder="Email"
             placeholderTextColor="rgba(255,255,255,0.5)"
             autoCapitalize="none"
@@ -189,7 +210,10 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
           <TextInput
             style={styles.input}
             value={password}
-            onChangeText={(t) => { setPassword(t); clearError(); }}
+            onChangeText={t => {
+              setPassword(t);
+              clearError();
+            }}
             placeholder="Password"
             placeholderTextColor="rgba(255,255,255,0.5)"
             secureTextEntry
@@ -198,7 +222,10 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
           <TextInput
             style={styles.input}
             value={confirmPassword}
-            onChangeText={(t) => { setConfirmPassword(t); clearError(); }}
+            onChangeText={t => {
+              setConfirmPassword(t);
+              clearError();
+            }}
             placeholder="Confirm Password"
             placeholderTextColor="rgba(255,255,255,0.5)"
             secureTextEntry
@@ -207,20 +234,20 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
-             onPress={handleSignUp}
-             disabled={loading || googleLoading}
-             style={({ pressed }) => [
-               styles.button,
-               { transform: [{ scale: pressed ? 0.96 : 1 }] },
-               (loading || googleLoading) && { opacity: 0.7 },
-             ]}
-           >
-             {loading ? (
+            onPress={handleSignUp}
+            disabled={loading || googleLoading}
+            style={({ pressed }) => [
+              styles.button,
+              { transform: [{ scale: pressed ? 0.96 : 1 }] },
+              (loading || googleLoading) && { opacity: 0.7 },
+            ]}
+          >
+            {loading ? (
               <ActivityIndicator color="#FF8C00" size="small" />
             ) : (
               <Text style={styles.buttonText}>Sign Up</Text>
-             )}
-           </Pressable>
+            )}
+          </Pressable>
 
           <Pressable
             onPress={handleGoogleSignUp}
@@ -238,8 +265,8 @@ export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: 
             )}
           </Pressable>
 
-           <Pressable onPress={onGoToLogin} style={styles.link}>
-             <Text style={styles.linkText}>
+          <Pressable onPress={onGoToLogin} style={styles.link}>
+            <Text style={styles.linkText}>
               Already have an account?{' '}
               <Text style={styles.linkBold}>Login</Text>
             </Text>

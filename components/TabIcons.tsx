@@ -1,9 +1,9 @@
 /**
- * TabIcons — clean painted-style icons for the bottom navigation bar.
+ * TabIcons — clean painted-style icons built with View primitives.
  * Built entirely with React Native View primitives, no emoji, no libraries.
  */
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 
 type IconProps = {
   color: string;
@@ -14,7 +14,14 @@ type IconProps = {
 export function HomeIcon({ color, size = 22 }: IconProps) {
   const s = size / 22;
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end' }}>
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+      }}
+    >
       {/* Roof triangle */}
       <View
         style={{
@@ -62,11 +69,49 @@ export function HomeIcon({ color, size = 22 }: IconProps) {
 /* ─── Chart / Dashboard Icon ─────────────────────────────────────── */
 export function ChartIcon({ color, size = 22 }: IconProps) {
   return (
-    <View style={{ width: size, height: size, flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
-      <View style={{ width: size * 0.22, height: size * 0.45, backgroundColor: color, borderRadius: 2, opacity: 0.6 }} />
-      <View style={{ width: size * 0.22, height: size * 0.75, backgroundColor: color, borderRadius: 2 }} />
-      <View style={{ width: size * 0.22, height: size * 0.55, backgroundColor: color, borderRadius: 2, opacity: 0.8 }} />
-      <View style={{ width: size * 0.22, height: size * 0.9, backgroundColor: color, borderRadius: 2 }} />
+    <View
+      style={{
+        width: size,
+        height: size,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 3,
+      }}
+    >
+      <View
+        style={{
+          width: size * 0.22,
+          height: size * 0.45,
+          backgroundColor: color,
+          borderRadius: 2,
+          opacity: 0.6,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.22,
+          height: size * 0.75,
+          backgroundColor: color,
+          borderRadius: 2,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.22,
+          height: size * 0.55,
+          backgroundColor: color,
+          borderRadius: 2,
+          opacity: 0.8,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.22,
+          height: size * 0.9,
+          backgroundColor: color,
+          borderRadius: 2,
+        }}
+      />
     </View>
   );
 }
@@ -107,7 +152,7 @@ export function GearIcon({ color, size = 22 }: IconProps) {
         }}
       />
       {/* Teeth — top, bottom, left, right */}
-      {[0, 90, 180, 270].map((deg) => {
+      {[0, 90, 180, 270].map(deg => {
         const rad = (deg * Math.PI) / 180;
         const dist = outerR - toothH * 0.3;
         return (
@@ -126,6 +171,213 @@ export function GearIcon({ color, size = 22 }: IconProps) {
           />
         );
       })}
+    </View>
+  );
+}
+
+/* ─── Extra UI Icons (painted style) ──────────────────────────────── */
+export function GamepadIcon({
+  color = '#6B4CE6',
+  size = 22,
+  accentColor = '#F5A623',
+}: IconProps) {
+  return (
+    <View style={{ width: size, height: size * 0.72, position: 'relative' }}>
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: size * 0.56,
+          borderRadius: size * 0.28,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: size * 0.18,
+          top: size * 0.3,
+          width: size * 0.2,
+          height: size * 0.2,
+          borderRadius: size * 0.04,
+          backgroundColor: 'rgba(255,255,255,0.72)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <View
+          style={{
+            position: 'absolute',
+            width: size * 0.15,
+            height: size * 0.035,
+            backgroundColor: color,
+            borderRadius: size * 0.02,
+          }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            width: size * 0.035,
+            height: size * 0.15,
+            backgroundColor: color,
+            borderRadius: size * 0.02,
+          }}
+        />
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          right: size * 0.16,
+          top: size * 0.32,
+          width: size * 0.08,
+          height: size * 0.08,
+          borderRadius: size * 0.04,
+          backgroundColor: accentColor,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          right: size * 0.27,
+          top: size * 0.42,
+          width: size * 0.08,
+          height: size * 0.08,
+          borderRadius: size * 0.04,
+          backgroundColor: 'rgba(255,255,255,0.74)',
+        }}
+      />
+    </View>
+  );
+}
+
+export function TrophyIcon({
+  color = '#F5A623',
+  size = 22,
+  accentColor = '#6B4CE6',
+}: IconProps) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center' }}>
+      <View
+        style={{
+          marginTop: size * 0.06,
+          width: size * 0.52,
+          height: size * 0.34,
+          borderRadius: size * 0.1,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          marginTop: size * 0.04,
+          width: size * 0.14,
+          height: size * 0.18,
+          borderRadius: size * 0.03,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          marginTop: size * 0.04,
+          width: size * 0.42,
+          height: size * 0.14,
+          borderRadius: size * 0.05,
+          backgroundColor: accentColor,
+          opacity: 0.35,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.12,
+          left: size * 0.09,
+          width: size * 0.11,
+          height: size * 0.15,
+          borderTopLeftRadius: size * 0.06,
+          borderBottomLeftRadius: size * 0.06,
+          borderWidth: size * 0.03,
+          borderRightWidth: 0,
+          borderColor: color,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.12,
+          right: size * 0.09,
+          width: size * 0.11,
+          height: size * 0.15,
+          borderTopRightRadius: size * 0.06,
+          borderBottomRightRadius: size * 0.06,
+          borderWidth: size * 0.03,
+          borderLeftWidth: 0,
+          borderColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
+export function ClipboardIcon({
+  color = '#7E8BC7',
+  size = 22,
+  accentColor = '#F5A623',
+}: IconProps) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center' }}>
+      <View
+        style={{
+          marginTop: size * 0.12,
+          width: size * 0.66,
+          height: size * 0.78,
+          borderRadius: size * 0.08,
+          backgroundColor: color,
+          opacity: 0.22,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.03,
+          width: size * 0.32,
+          height: size * 0.18,
+          borderRadius: size * 0.08,
+          backgroundColor: accentColor,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.3,
+          width: size * 0.4,
+          height: size * 0.05,
+          borderRadius: size * 0.02,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.45,
+          width: size * 0.4,
+          height: size * 0.05,
+          borderRadius: size * 0.02,
+          backgroundColor: color,
+          opacity: 0.8,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.6,
+          width: size * 0.3,
+          height: size * 0.05,
+          borderRadius: size * 0.02,
+          backgroundColor: color,
+          opacity: 0.7,
+        }}
+      />
     </View>
   );
 }

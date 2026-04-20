@@ -1,12 +1,13 @@
 import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { HomeIcon, ChartIcon, GearIcon } from './TabIcons';
+  HomeIcon,
+  ChartIcon,
+  GearIcon,
+  GamepadIcon,
+  TrophyIcon,
+  ClipboardIcon,
+} from './TabIcons';
 
 type Tab = 'home' | 'dashboard' | 'settings';
 
@@ -38,13 +39,18 @@ function getEmoji(category: string): string {
 }
 
 function formatCategory(category: string): string {
-  return category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export default function DashboardScreen({ quizHistory, activeTab, onTabChange }: Props) {
+export default function DashboardScreen({
+  quizHistory,
+  activeTab,
+  onTabChange,
+}: Props) {
   const totalQuizzes = quizHistory.length;
-  const totalFirstPlace = quizHistory.filter((e) => e.isFirst).length;
-  const overallWinRate = totalQuizzes > 0 ? Math.round((totalFirstPlace / totalQuizzes) * 100) : 0;
+  const totalFirstPlace = quizHistory.filter(e => e.isFirst).length;
+  const overallWinRate =
+    totalQuizzes > 0 ? Math.round((totalFirstPlace / totalQuizzes) * 100) : 0;
 
   // Per-category stats
   const categoryMap = new Map<string, { total: number; firsts: number }>();
@@ -75,17 +81,23 @@ export default function DashboardScreen({ quizHistory, activeTab, onTabChange }:
         {/* Summary Cards */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryEmoji}>🎮</Text>
+            <View style={styles.summaryIconWrap}>
+              <GamepadIcon size={24} color="#6B4CE6" accentColor="#F5A623" />
+            </View>
             <Text style={styles.summaryValue}>{totalQuizzes}</Text>
             <Text style={styles.summaryLabel}>Total Quizzes</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryEmoji}>🏆</Text>
+            <View style={styles.summaryIconWrap}>
+              <TrophyIcon size={24} color="#F5A623" accentColor="#6B4CE6" />
+            </View>
             <Text style={styles.summaryValue}>{totalFirstPlace}</Text>
             <Text style={styles.summaryLabel}>#1 Finishes</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryEmoji}>📈</Text>
+            <View style={styles.summaryIconWrap}>
+              <ChartIcon color="#7E8BC7" size={24} />
+            </View>
             <Text style={styles.summaryValue}>{overallWinRate}%</Text>
             <Text style={styles.summaryLabel}>Win Rate</Text>
           </View>
@@ -97,31 +109,42 @@ export default function DashboardScreen({ quizHistory, activeTab, onTabChange }:
 
           {categories.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📋</Text>
+              <View style={styles.emptyIconWrap}>
+                <ClipboardIcon
+                  size={32}
+                  color="#7E8BC7"
+                  accentColor="#F5A623"
+                />
+              </View>
               <Text style={styles.emptyText}>No games yet</Text>
               <Text style={styles.emptySubtext}>
                 Play a quiz to see your category stats here
               </Text>
             </View>
           ) : (
-            categories.map((cat) => (
+            categories.map(cat => (
               <View key={cat.name} style={styles.catRow}>
                 <View style={styles.catInfo}>
                   <Text style={styles.catEmoji}>{cat.emoji}</Text>
                   <View style={styles.catDetails}>
                     <Text style={styles.catName}>{cat.label}</Text>
                     <Text style={styles.catMeta}>
-                      {cat.quizzes} quiz{cat.quizzes !== 1 ? 'zes' : ''} · {cat.firsts} perfect
+                      {cat.quizzes} quiz{cat.quizzes !== 1 ? 'zes' : ''} ·{' '}
+                      {cat.firsts} perfect
                     </Text>
                   </View>
                 </View>
                 <View style={styles.catRight}>
-                  <Text style={[
-                    styles.catWinRate,
-                    cat.winRate >= 70 ? styles.catWinHigh :
-                    cat.winRate >= 40 ? styles.catWinMid :
-                    styles.catWinLow,
-                  ]}>
+                  <Text
+                    style={[
+                      styles.catWinRate,
+                      cat.winRate >= 70
+                        ? styles.catWinHigh
+                        : cat.winRate >= 40
+                        ? styles.catWinMid
+                        : styles.catWinLow,
+                    ]}
+                  >
                     {cat.winRate}%
                   </Text>
                   <View style={styles.barTrack}>
@@ -131,9 +154,11 @@ export default function DashboardScreen({ quizHistory, activeTab, onTabChange }:
                         {
                           width: `${cat.winRate}%`,
                           backgroundColor:
-                            cat.winRate >= 70 ? '#4CAF50' :
-                            cat.winRate >= 40 ? '#FF8C00' :
-                            '#E53935',
+                            cat.winRate >= 70
+                              ? '#4CAF50'
+                              : cat.winRate >= 40
+                              ? '#FF8C00'
+                              : '#E53935',
                         },
                       ]}
                     />
@@ -148,26 +173,43 @@ export default function DashboardScreen({ quizHistory, activeTab, onTabChange }:
         {quizHistory.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Recent Activity</Text>
-            {quizHistory.slice(-5).reverse().map((entry, i) => (
-              <View key={i} style={styles.activityRow}>
-                <Text style={styles.activityEmoji}>{getEmoji(entry.category)}</Text>
-                <View style={styles.activityInfo}>
-                  <Text style={styles.activityCat}>{formatCategory(entry.category)}</Text>
-                  <Text style={styles.activityDate}>
-                    {new Date(entry.date).toLocaleDateString()}
+            {quizHistory
+              .slice(-5)
+              .reverse()
+              .map((entry, i) => (
+                <View key={i} style={styles.activityRow}>
+                  <Text style={styles.activityEmoji}>
+                    {getEmoji(entry.category)}
                   </Text>
+                  <View style={styles.activityInfo}>
+                    <Text style={styles.activityCat}>
+                      {formatCategory(entry.category)}
+                    </Text>
+                    <Text style={styles.activityDate}>
+                      {new Date(entry.date).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={styles.activityScoreWrap}>
+                    <Text
+                      style={[
+                        styles.activityScore,
+                        entry.isFirst && styles.activityScorePerfect,
+                      ]}
+                    >
+                      {entry.score}/{entry.total}
+                    </Text>
+                    {entry.isFirst && (
+                      <View style={styles.perfectBadgeIcon}>
+                        <TrophyIcon
+                          size={14}
+                          color="#4CAF50"
+                          accentColor="#D1F4D7"
+                        />
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.activityScoreWrap}>
-                  <Text style={[
-                    styles.activityScore,
-                    entry.isFirst && styles.activityScorePerfect,
-                  ]}>
-                    {entry.score}/{entry.total}
-                  </Text>
-                  {entry.isFirst && <Text style={styles.perfectBadge}>🏆</Text>}
-                </View>
-              </View>
-            ))}
+              ))}
           </View>
         )}
       </ScrollView>
@@ -179,24 +221,59 @@ export default function DashboardScreen({ quizHistory, activeTab, onTabChange }:
           onPress={() => onTabChange('home')}
         >
           {activeTab === 'home' && <View style={styles.navDot} />}
-          <HomeIcon color={activeTab === 'home' ? '#F5A623' : '#C8C8C8'} size={22} />
-          <Text style={activeTab === 'home' ? styles.navLabelActive : styles.navLabel}>Home</Text>
+          <HomeIcon
+            color={activeTab === 'home' ? '#F5A623' : '#C8C8C8'}
+            size={22}
+          />
+          <Text
+            style={
+              activeTab === 'home' ? styles.navLabelActive : styles.navLabel
+            }
+          >
+            Home
+          </Text>
         </Pressable>
         <Pressable
-          style={[styles.navItem, activeTab === 'dashboard' && styles.navItemActive]}
+          style={[
+            styles.navItem,
+            activeTab === 'dashboard' && styles.navItemActive,
+          ]}
           onPress={() => onTabChange('dashboard')}
         >
           {activeTab === 'dashboard' && <View style={styles.navDot} />}
-          <ChartIcon color={activeTab === 'dashboard' ? '#F5A623' : '#C8C8C8'} size={22} />
-          <Text style={activeTab === 'dashboard' ? styles.navLabelActive : styles.navLabel}>Dashboard</Text>
+          <ChartIcon
+            color={activeTab === 'dashboard' ? '#F5A623' : '#C8C8C8'}
+            size={22}
+          />
+          <Text
+            style={
+              activeTab === 'dashboard'
+                ? styles.navLabelActive
+                : styles.navLabel
+            }
+          >
+            Dashboard
+          </Text>
         </Pressable>
         <Pressable
-          style={[styles.navItem, activeTab === 'settings' && styles.navItemActive]}
+          style={[
+            styles.navItem,
+            activeTab === 'settings' && styles.navItemActive,
+          ]}
           onPress={() => onTabChange('settings')}
         >
           {activeTab === 'settings' && <View style={styles.navDot} />}
-          <GearIcon color={activeTab === 'settings' ? '#F5A623' : '#C8C8C8'} size={22} />
-          <Text style={activeTab === 'settings' ? styles.navLabelActive : styles.navLabel}>Settings</Text>
+          <GearIcon
+            color={activeTab === 'settings' ? '#F5A623' : '#C8C8C8'}
+            size={22}
+          />
+          <Text
+            style={
+              activeTab === 'settings' ? styles.navLabelActive : styles.navLabel
+            }
+          >
+            Settings
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -275,8 +352,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
   },
-  summaryEmoji: {
-    fontSize: 24,
+  summaryIconWrap: {
     marginBottom: 6,
   },
   summaryValue: {
@@ -394,15 +470,14 @@ const styles = StyleSheet.create({
   activityScorePerfect: {
     color: '#4CAF50',
   },
-  perfectBadge: {
-    fontSize: 14,
+  perfectBadgeIcon: {
+    marginTop: 2,
   },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 30,
   },
-  emptyIcon: {
-    fontSize: 36,
+  emptyIconWrap: {
     marginBottom: 10,
   },
   emptyText: {

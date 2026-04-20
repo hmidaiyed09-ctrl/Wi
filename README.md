@@ -404,6 +404,72 @@ if (activeTab === 'dashboard') {
 
 ---
 
+## 📋 Sprint 6 — UI Polish (Auth Card + Iconographie)
+
+**Date :** 20 Avril 2026  
+**Objectif :** Améliorer la qualité visuelle de l'écran Login et harmoniser le style "painted" des icônes sur Home/Dashboard.
+
+---
+
+### US-16 : Carte Login premium (thème Wi)
+
+**En tant qu'** utilisateur,  
+**je veux** une carte Login mieux travaillée visuellement (thème Wi, hiérarchie claire, Google CTA lisible),  
+**afin d'** avoir une expérience d'authentification plus propre et plus moderne.
+
+**Critères d'acceptation :**
+- ✅ Carte login enrichie avec pattern visuel "WI"
+- ✅ Champs Email/Password en fond clair avec icônes à gauche
+- ✅ Séparateur **OR** entre login classique et login Google
+- ✅ Bouton Google blanc avec logo Google visible
+
+---
+
+### US-17 : Ergonomie du champ mot de passe
+
+**En tant qu'** utilisateur,  
+**je veux** pouvoir afficher/masquer mon mot de passe sans icône œil,  
+**afin de** contrôler la saisie avec une interaction simple.
+
+**Critères d'acceptation :**
+- ✅ Icône password uniformisée (non-emoji, couleur cohérente)
+- ✅ L'icône de champ disparaît lors du focus/saisie
+- ✅ Option **Show/Hide** textuelle ajoutée sur le champ password
+
+---
+
+### US-18 : Harmonisation des icônes "painted" Home/Dashboard
+
+**En tant qu'** utilisateur,  
+**je veux** des icônes visuellement cohérentes sur les états vides/statistiques,  
+**afin d'** éviter l'effet "image collée" et garder un rendu premium.
+
+**Critères d'acceptation :**
+- ✅ Ajout d'icônes painted réutilisables (`GamepadIcon`, `TrophyIcon`, `ClipboardIcon`)
+- ✅ Intégration de ces icônes dans Home et Dashboard (résumé, badges, états vides)
+
+---
+
+### ✅ Tasks Sprint 6 — UI Polish
+
+- ✅ **TASK-6.1** : Rework visuel de `LoginScreen` (carte, inputs, CTA, OR divider)
+- ✅ **TASK-6.2** : Intégrer un logo Google lisible dans le bouton Google
+- ✅ **TASK-6.3** : Ajouter le toggle textuel Show/Hide pour le mot de passe
+- ✅ **TASK-6.4** : Uniformiser les icônes painted entre Home et Dashboard
+- ✅ **TASK-6.5** : Garder la navigation/bottom tabs intactes (pas de régression UX)
+
+### Fichiers concernés (Sprint 6)
+
+| Fichier | Modification |
+|---------|--------------|
+| `components/LoginScreen.tsx` | Refonte visuelle de la carte login + input UX + Google CTA |
+| `components/TabIcons.tsx` | Ajout d'icônes painted réutilisables |
+| `components/HomeScreen.tsx` | Remplacement de certains badges/états par les icônes painted |
+| `components/DashboardScreen.tsx` | Remplacement de certains badges/états par les icônes painted |
+| `components/SignUpScreen.tsx` | Harmonisation de style/structure avec l'écran login |
+
+---
+
 ## 🏗️ Architecture Technique
 
 ### Fichiers Modifiés

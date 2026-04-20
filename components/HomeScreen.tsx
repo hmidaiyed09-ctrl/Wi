@@ -7,7 +7,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { HomeIcon, ChartIcon, GearIcon } from './TabIcons';
+import {
+  HomeIcon,
+  ChartIcon,
+  GearIcon,
+  GamepadIcon,
+  TrophyIcon,
+} from './TabIcons';
 
 type Tab = 'home' | 'dashboard' | 'settings';
 
@@ -86,8 +92,12 @@ export default function HomeScreen({
           >
             <View style={styles.profileMenu}>
               <Text style={styles.profileMenuName}>{profileName}</Text>
-              <Text style={styles.profileMenuEmail}>{profileEmail || 'No email available'}</Text>
-              <Text style={styles.profileMenuProvider}>{authProviderLabel}</Text>
+              <Text style={styles.profileMenuEmail}>
+                {profileEmail || 'No email available'}
+              </Text>
+              <Text style={styles.profileMenuProvider}>
+                {authProviderLabel}
+              </Text>
               <View style={styles.profileMenuDivider} />
               <Pressable
                 onPress={() => {
@@ -105,7 +115,9 @@ export default function HomeScreen({
           </Pressable>
         </Modal>
 
-        {syncError ? <Text style={styles.syncErrorText}>{syncError}</Text> : null}
+        {syncError ? (
+          <Text style={styles.syncErrorText}>{syncError}</Text>
+        ) : null}
 
         <View style={styles.heroSection}>
           <View style={styles.readyRow}>
@@ -163,14 +175,20 @@ export default function HomeScreen({
             </View>
           </Pressable>
         </View>
-        
+
         <Modal visible={showFriendsChooser} transparent animationType="fade">
-          <Pressable style={styles.chooserBackdrop} onPress={() => setShowFriendsChooser(false)}>
+          <Pressable
+            style={styles.chooserBackdrop}
+            onPress={() => setShowFriendsChooser(false)}
+          >
             <View style={styles.chooserCard}>
               <Text style={styles.chooserTitle}>Play with Friends</Text>
               <Text style={styles.chooserSubtitle}>Choose one option</Text>
               <Pressable
-                style={({ pressed }) => [styles.chooserPrimary, { opacity: pressed ? 0.9 : 1 }]}
+                style={({ pressed }) => [
+                  styles.chooserPrimary,
+                  { opacity: pressed ? 0.9 : 1 },
+                ]}
                 onPress={() => {
                   setShowFriendsChooser(false);
                   onCreateRoom();
@@ -179,7 +197,10 @@ export default function HomeScreen({
                 <Text style={styles.chooserPrimaryText}>Create Room</Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.chooserSecondary, { opacity: pressed ? 0.9 : 1 }]}
+                style={({ pressed }) => [
+                  styles.chooserSecondary,
+                  { opacity: pressed ? 0.9 : 1 },
+                ]}
                 onPress={() => {
                   setShowFriendsChooser(false);
                   onJoinRoom();
@@ -190,8 +211,6 @@ export default function HomeScreen({
             </View>
           </Pressable>
         </Modal>
-
-
 
         {/* Recent Games */}
         <View style={styles.sectionHeader}>
@@ -206,8 +225,12 @@ export default function HomeScreen({
 
         {quizHistory.length === 0 ? (
           <View style={styles.emptyRecent}>
-            <Text style={styles.emptyRecentEmoji}>🎮</Text>
-            <Text style={styles.emptyRecentText}>Play a quiz to see your history here!</Text>
+            <View style={styles.emptyRecentIconWrap}>
+              <GamepadIcon size={30} color="#6B4CE6" accentColor="#F5A623" />
+            </View>
+            <Text style={styles.emptyRecentText}>
+              Play a quiz to see your history here!
+            </Text>
           </View>
         ) : (
           <ScrollView
@@ -215,25 +238,51 @@ export default function HomeScreen({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.gamesScroll}
           >
-            {quizHistory.slice(-5).reverse().map((entry, i) => {
-              const pct = Math.round((entry.score / entry.total) * 100);
-              const color = pct >= 80 ? '#4CAF50' : pct >= 50 ? '#FFA726' : '#EF5350';
-              const emoji = CATEGORY_EMOJI_MAP[entry.category] || '📝';
-              const catLabel = entry.category.replace(/_/g, ' ').toUpperCase();
-              return (
-                <View key={i} style={styles.gameCard}>
-                  <View style={[styles.gameAvatar, { backgroundColor: '#FFF3E0' }]}>
-                    <Text style={styles.gameAvatarEmoji}>{emoji}</Text>
+            {quizHistory
+              .slice(-5)
+              .reverse()
+              .map((entry, i) => {
+                const pct = Math.round((entry.score / entry.total) * 100);
+                const color =
+                  pct >= 80 ? '#4CAF50' : pct >= 50 ? '#FFA726' : '#EF5350';
+                const emoji = CATEGORY_EMOJI_MAP[entry.category] || '📝';
+                const catLabel = entry.category
+                  .replace(/_/g, ' ')
+                  .toUpperCase();
+                return (
+                  <View key={i} style={styles.gameCard}>
+                    <View
+                      style={[
+                        styles.gameAvatar,
+                        { backgroundColor: '#FFF3E0' },
+                      ]}
+                    >
+                      <Text style={styles.gameAvatarEmoji}>{emoji}</Text>
+                    </View>
+                    <Text style={styles.gameSubject}>{catLabel}</Text>
+                    <Text style={[styles.gameScore, { color }]}>
+                      {entry.score}/{entry.total}
+                    </Text>
+                    <View style={styles.gameBar}>
+                      <View
+                        style={[
+                          styles.gameBarFill,
+                          { width: `${pct}%`, backgroundColor: color },
+                        ]}
+                      />
+                    </View>
+                    {entry.isFirst && (
+                      <View style={styles.perfectMark}>
+                        <TrophyIcon
+                          size={14}
+                          color="#F5A623"
+                          accentColor="#6B4CE6"
+                        />
+                      </View>
+                    )}
                   </View>
-                  <Text style={styles.gameSubject}>{catLabel}</Text>
-                  <Text style={[styles.gameScore, { color }]}>{entry.score}/{entry.total}</Text>
-                  <View style={styles.gameBar}>
-                    <View style={[styles.gameBarFill, { width: `${pct}%`, backgroundColor: color }]} />
-                  </View>
-                  {entry.isFirst && <Text style={styles.perfectMark}>🏆</Text>}
-                </View>
-              );
-            })}
+                );
+              })}
           </ScrollView>
         )}
 
@@ -242,7 +291,7 @@ export default function HomeScreen({
           <View style={styles.statsHeader}>
             <View style={styles.statsLeft}>
               <View style={styles.statsIconBox}>
-                <Text style={styles.statsIconEmoji}>📊</Text>
+                <ChartIcon color="#F5A623" size={20} />
               </View>
               <View>
                 <Text style={styles.statsLabel}>Your Stats</Text>
@@ -251,7 +300,13 @@ export default function HomeScreen({
             </View>
             <View style={styles.statsRight}>
               <Text style={styles.statsBigNumber}>
-                {quizHistory.length > 0 ? Math.round((quizHistory.filter(e => e.isFirst).length / quizHistory.length) * 100) : 0}
+                {quizHistory.length > 0
+                  ? Math.round(
+                      (quizHistory.filter(e => e.isFirst).length /
+                        quizHistory.length) *
+                        100,
+                    )
+                  : 0}
                 <Text style={styles.statsPercent}>%</Text>
               </Text>
               <Text style={styles.statsChange}>win rate</Text>
@@ -265,11 +320,16 @@ export default function HomeScreen({
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statItemLabel}>PERFECT SCORES</Text>
-              <Text style={styles.statItemValue}>{quizHistory.filter(e => e.isFirst).length}</Text>
+              <Text style={styles.statItemValue}>
+                {quizHistory.filter(e => e.isFirst).length}
+              </Text>
             </View>
           </View>
 
-          <Pressable style={styles.viewHistory} onPress={() => onTabChange('dashboard')}>
+          <Pressable
+            style={styles.viewHistory}
+            onPress={() => onTabChange('dashboard')}
+          >
             <Text style={styles.viewHistoryText}>View Full History ›</Text>
           </Pressable>
         </View>
@@ -282,24 +342,59 @@ export default function HomeScreen({
           onPress={() => onTabChange('home')}
         >
           {activeTab === 'home' && <View style={styles.navDot} />}
-          <HomeIcon color={activeTab === 'home' ? '#F5A623' : '#C8C8C8'} size={22} />
-          <Text style={activeTab === 'home' ? styles.navLabelActive : styles.navLabel}>Home</Text>
+          <HomeIcon
+            color={activeTab === 'home' ? '#F5A623' : '#C8C8C8'}
+            size={22}
+          />
+          <Text
+            style={
+              activeTab === 'home' ? styles.navLabelActive : styles.navLabel
+            }
+          >
+            Home
+          </Text>
         </Pressable>
         <Pressable
-          style={[styles.navItem, activeTab === 'dashboard' && styles.navItemActive]}
+          style={[
+            styles.navItem,
+            activeTab === 'dashboard' && styles.navItemActive,
+          ]}
           onPress={() => onTabChange('dashboard')}
         >
           {activeTab === 'dashboard' && <View style={styles.navDot} />}
-          <ChartIcon color={activeTab === 'dashboard' ? '#F5A623' : '#C8C8C8'} size={22} />
-          <Text style={activeTab === 'dashboard' ? styles.navLabelActive : styles.navLabel}>Dashboard</Text>
+          <ChartIcon
+            color={activeTab === 'dashboard' ? '#F5A623' : '#C8C8C8'}
+            size={22}
+          />
+          <Text
+            style={
+              activeTab === 'dashboard'
+                ? styles.navLabelActive
+                : styles.navLabel
+            }
+          >
+            Dashboard
+          </Text>
         </Pressable>
         <Pressable
-          style={[styles.navItem, activeTab === 'settings' && styles.navItemActive]}
+          style={[
+            styles.navItem,
+            activeTab === 'settings' && styles.navItemActive,
+          ]}
           onPress={() => onTabChange('settings')}
         >
           {activeTab === 'settings' && <View style={styles.navDot} />}
-          <GearIcon color={activeTab === 'settings' ? '#F5A623' : '#C8C8C8'} size={22} />
-          <Text style={activeTab === 'settings' ? styles.navLabelActive : styles.navLabel}>Settings</Text>
+          <GearIcon
+            color={activeTab === 'settings' ? '#F5A623' : '#C8C8C8'}
+            size={22}
+          />
+          <Text
+            style={
+              activeTab === 'settings' ? styles.navLabelActive : styles.navLabel
+            }
+          >
+            Settings
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -661,7 +756,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   gameAvatarEmoji: { fontSize: 20 },
-  perfectMark: { fontSize: 14, marginTop: 6 },
+  perfectMark: { marginTop: 6 },
   emptyRecent: {
     backgroundColor: '#fff',
     borderRadius: 18,
@@ -671,8 +766,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  emptyRecentEmoji: { fontSize: 32, marginBottom: 8 },
-  emptyRecentText: { fontSize: 14, fontWeight: '600', color: '#999', textAlign: 'center' },
+  emptyRecentIconWrap: { marginBottom: 8 },
+  emptyRecentText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+    textAlign: 'center',
+  },
   gameSubject: {
     fontSize: 9,
     fontWeight: '600',
@@ -724,7 +824,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statsIconEmoji: { fontSize: 20 },
   statsLabel: {
     fontSize: 15,
     fontWeight: '700',
