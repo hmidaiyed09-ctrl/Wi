@@ -2,6 +2,23 @@
 
 **Wi** est une application mobile et web de quiz alimentée par l'intelligence artificielle. Elle permet aux utilisateurs de tester leurs connaissances sur différentes catégories grâce à des questions générées dynamiquement par un modèle IA.
 
+## 🔐 Firebase Auth & Données Utilisateur
+
+L'application inclut maintenant :
+- Authentification Firebase par **email/mot de passe**
+- Inscription/connexion par **compte Google**
+- Sauvegarde des données par compte (`users/{uid}` + `users/{uid}/quizHistory`)
+
+### Configuration Firebase requise
+
+1. Activez les providers **Email/Password** et **Google** dans Firebase Authentication.
+2. Ajoutez votre domaine web autorisé (ex: `localhost`) dans Google Auth.
+3. Activez Firestore et configurez des règles par utilisateur (accès à ses propres documents uniquement).
+
+Exemple de structure Firestore utilisée :
+- `users/{uid}`: `username`, `email`, `providerId`, `preferredLanguage`, `createdAt`, `updatedAt`
+- `users/{uid}/quizHistory/{gameId}`: `category`, `score`, `total`, `date`, `isFirst`, `createdAt`
+
 ---
 
 ## 📋 Sprint Réalisé
@@ -305,6 +322,85 @@ if (activeTab === 'dashboard') {
 - ✅ En cas de code valide, le joueur rejoint la room Firebase et voit les infos de room/joueurs
 - ✅ Les erreurs sont gérées (code invalide, room introuvable)
 - ✅ L'option **Scan with Camera** est présente mais non active (coming soon)
+
+---
+
+### ✅ Tasks Sprint 4 — Play with Friends
+
+- ✅ **TASK-4.1** : Ajouter l'accès "With Friends" depuis la Home vers un menu dédié
+- ✅ **TASK-4.2** : Implémenter **Create Room** (Firebase + code room 6 chiffres + état d'attente hôte)
+- ✅ **TASK-4.3** : Implémenter **Join Room** (saisie code + validation + jointure Firebase)
+- ✅ **TASK-4.4** : Afficher le nom de room `myfriend`, le profil hôte et la liste des joueurs
+- ✅ **TASK-4.5** : Gérer les erreurs de room (code invalide / room introuvable)
+- ✅ **TASK-4.6** : Ajouter le bouton **Scan with Camera** en mode placeholder (coming soon)
+
+### Fichiers concernés (Sprint 4)
+
+| Fichier | Modification |
+|---------|--------------|
+| `App.tsx` | Ajout de la navigation vers les écrans Friends (`friendsMenu`, `createRoom`, `joinRoom`) |
+| `components/HomeScreen.tsx` | Carte Home "With Friends" + CTA Create/Join Room |
+| `components/FriendsMenuScreen.tsx` | Menu dédié Play with Friends |
+| `components/CreateRoomScreen.tsx` | Création de room + vue hôte en attente |
+| `components/JoinRoomScreen.tsx` | Rejoindre une room par code + UI d'erreur |
+| `services/firebaseRooms.tsx` | Logique Firebase de création, jointure et écoute des rooms |
+
+---
+
+## 📋 Sprint 5 — Authentification Réelle & Persistance de Session
+
+**Date :** 20 Avril 2026  
+**Objectif :** Finaliser l'authentification Firebase (Email/Password + Google) et corriger la boucle de reconnexion causée par les erreurs de synchronisation cloud.
+
+---
+
+### US-14 : Authentification complète (Sign Up / Login / Google)
+
+**En tant qu'** utilisateur,  
+**je veux** créer un compte, me connecter avec email/mot de passe, ou utiliser Google,  
+**afin d'** accéder à mon compte de façon simple et sécurisée.
+
+**Critères d'acceptation :**
+- ✅ Le Sign Up par email crée un compte Firebase et un profil utilisateur (`users/{uid}`)
+- ✅ Le Login email restaure le compte utilisateur existant
+- ✅ Le Sign In / Sign Up Google fonctionne sur Web
+- ✅ Le profil utilisateur contient `username`, `email`, `providerId`, `preferredLanguage`
+
+---
+
+### US-15 : Persistance de session et fin de la boucle "retour Home + re-login"
+
+**En tant qu'** utilisateur,  
+**je veux** rester connecté même si la synchronisation Firestore échoue temporairement,  
+**afin de** ne pas être renvoyé en boucle vers une reconnexion.
+
+**Critères d'acceptation :**
+- ✅ La session auth est initialisée avec persistance navigateur (`LOCAL`, fallback `SESSION`)
+- ✅ Si le document profil n'existe pas, il est créé automatiquement au lieu d'échouer
+- ✅ En cas d'erreur de sync profil/historique, l'utilisateur reste connecté (fallback local)
+- ✅ L'application affiche un message de sync au lieu de faire `signOut`
+
+---
+
+### ✅ Tasks Sprint 5 — Auth & Session Fix
+
+- ✅ **TASK-5.1** : Ajouter les services Firebase Auth (init, login, signup, google, logout)
+- ✅ **TASK-5.2** : Connecter `LoginScreen` et `SignUpScreen` aux handlers réels d'authentification
+- ✅ **TASK-5.3** : Créer/mettre à jour automatiquement le profil `users/{uid}` après authentification
+- ✅ **TASK-5.4** : Charger `preferredLanguage` et `quizHistory` depuis Firestore
+- ✅ **TASK-5.5** : Corriger la boucle de déconnexion en cas d'erreur cloud (fallback local)
+- ✅ **TASK-5.6** : Afficher des messages de synchronisation non bloquants
+
+### Fichiers concernés (Sprint 5)
+
+| Fichier | Modification |
+|---------|--------------|
+| `services/firebaseClient.ts` | Initialisation Firebase App/Auth/Firestore |
+| `services/firebaseAuth.ts` | Service complet d'authentification + profils + persistance |
+| `App.tsx` | Gestion `onAuthStateChanged`, fallback local, sync de langue/historique |
+| `components/LoginScreen.tsx` | Login email + Google connecté aux handlers réels |
+| `components/SignUpScreen.tsx` | Sign Up email + Google avec validation username |
+| `__tests__/App.test.tsx` | Adaptation des mocks auth à la nouvelle logique |
 
 ---
 

@@ -11,17 +11,60 @@ import {
 } from 'react-native';
 
 type Props = {
-  onSignUp: (name: string, email: string, password: string) => void;
+  onSignUp: (name: string, email: string, password: string) => Promise<void>;
+  onGoogleSignUp: (username: string) => Promise<void>;
   onGoToLogin: () => void;
 };
 
-export default function SignUpScreen({ onSignUp, onGoToLogin }: Props) {
+const getSignUpErrorMessage = (error: unknown): string => {
+  const code = typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && typeof (error as { code?: unknown }).code === 'string'
+    ? String((error as { code: string }).code)
+    : '';
+
+  const message = error instanceof Error ? error.message : '';
+
+  if (code === 'auth/email-already-in-use') {
+    return 'This email is already in use. Please login instead.';
+  }
+
+  if (code === 'auth/invalid-email') {
+    return 'Please enter a valid email address.';
+  }
+
+  if (code === 'auth/weak-password') {
+    return 'Password is too weak. Use at least 6 characters.';
+  }
+
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Google sign-up was cancelled.';
+  }
+
+  if (code === 'auth/popup-blocked') {
+    return 'Your browser blocked the Google popup. Please allow popups and try again.';
+  }
+
+  if (message === 'GOOGLE_SIGN_IN_WEB_ONLY') {
+    return 'Google sign-up is available on web only in this build.';
+  }
+
+  if (message.length > 0) {
+    return message;
+  }
+
+  return 'Sign-up failed. Please try again.';
+};
+
+export default function SignUpScreen({ onSignUp, onGoogleSignUp, onGoToLogin }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const logoScale = useRef(new Animated.Value(0.5)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -60,7 +103,7 @@ export default function SignUpScreen({ onSignUp, onGoToLogin }: Props) {
 
   const clearError = () => { if (error) setError(''); };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('Please fill in all fields.');
       return;
@@ -71,10 +114,32 @@ export default function SignUpScreen({ onSignUp, onGoToLogin }: Props) {
     }
     setError('');
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      await onSignUp(name.trim(), email.trim(), password.trim());
+    } catch (caughtError) {
+      setError(getSignUpErrorMessage(caughtError));
+    } finally {
       setLoading(false);
-      onSignUp(name.trim(), email.trim(), password.trim());
-    }, 800);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    if (!name.trim()) {
+      setError('Please enter a username before signing up with Google.');
+      return;
+    }
+
+    setError('');
+    setGoogleLoading(true);
+
+    try {
+      await onGoogleSignUp(name.trim());
+    } catch (caughtError) {
+      setError(getSignUpErrorMessage(caughtError));
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -142,23 +207,39 @@ export default function SignUpScreen({ onSignUp, onGoToLogin }: Props) {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
-            onPress={handleSignUp}
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.button,
-              { transform: [{ scale: pressed ? 0.96 : 1 }] },
-              loading && { opacity: 0.7 },
-            ]}
-          >
-            {loading ? (
+             onPress={handleSignUp}
+             disabled={loading || googleLoading}
+             style={({ pressed }) => [
+               styles.button,
+               { transform: [{ scale: pressed ? 0.96 : 1 }] },
+               (loading || googleLoading) && { opacity: 0.7 },
+             ]}
+           >
+             {loading ? (
               <ActivityIndicator color="#FF8C00" size="small" />
             ) : (
               <Text style={styles.buttonText}>Sign Up</Text>
+             )}
+           </Pressable>
+
+          <Pressable
+            onPress={handleGoogleSignUp}
+            disabled={loading || googleLoading}
+            style={({ pressed }) => [
+              styles.googleButton,
+              { transform: [{ scale: pressed ? 0.96 : 1 }] },
+              (loading || googleLoading) && { opacity: 0.7 },
+            ]}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.googleButtonText}>Sign Up with Google</Text>
             )}
           </Pressable>
 
-          <Pressable onPress={onGoToLogin} style={styles.link}>
-            <Text style={styles.linkText}>
+           <Pressable onPress={onGoToLogin} style={styles.link}>
+             <Text style={styles.linkText}>
               Already have an account?{' '}
               <Text style={styles.linkBold}>Login</Text>
             </Text>
@@ -259,6 +340,22 @@ const styles = StyleSheet.create({
   },
   link: {
     marginTop: 22,
+  },
+  googleButton: {
+    width: '100%',
+    minHeight: 56,
+    borderRadius: 30,
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  googleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   linkText: {
     color: 'rgba(255,255,255,0.8)',

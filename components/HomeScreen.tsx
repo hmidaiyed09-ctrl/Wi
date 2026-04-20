@@ -24,6 +24,10 @@ type Props = {
   onCreateRoom: () => void;
   onJoinRoom: () => void;
   onSignOut: () => void;
+  profileName: string;
+  profileEmail: string;
+  authProviderLabel: string;
+  syncError: string;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   quizHistory: QuizHistoryEntry[];
@@ -38,9 +42,22 @@ const CATEGORY_EMOJI_MAP: Record<string, string> = {
   custom: '✏️',
 };
 
-export default function HomeScreen({ onPlayAlone, onCreateRoom, onJoinRoom, onSignOut, activeTab, onTabChange, quizHistory }: Props) {
+export default function HomeScreen({
+  onPlayAlone,
+  onCreateRoom,
+  onJoinRoom,
+  onSignOut,
+  profileName,
+  profileEmail,
+  authProviderLabel,
+  syncError,
+  activeTab,
+  onTabChange,
+  quizHistory,
+}: Props) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showFriendsChooser, setShowFriendsChooser] = useState(false);
+  const avatarInitial = (profileName.trim().charAt(0) || 'U').toUpperCase();
 
   return (
     <View style={styles.container}>
@@ -57,7 +74,7 @@ export default function HomeScreen({ onPlayAlone, onCreateRoom, onJoinRoom, onSi
             onPress={() => setShowProfileMenu(true)}
             style={styles.profileAvatar}
           >
-            <Text style={styles.profileAvatarText}>U</Text>
+            <Text style={styles.profileAvatarText}>{avatarInitial}</Text>
           </Pressable>
         </View>
 
@@ -68,8 +85,9 @@ export default function HomeScreen({ onPlayAlone, onCreateRoom, onJoinRoom, onSi
             onPress={() => setShowProfileMenu(false)}
           >
             <View style={styles.profileMenu}>
-              <Text style={styles.profileMenuName}>User</Text>
-              <Text style={styles.profileMenuEmail}>user@example.com</Text>
+              <Text style={styles.profileMenuName}>{profileName}</Text>
+              <Text style={styles.profileMenuEmail}>{profileEmail || 'No email available'}</Text>
+              <Text style={styles.profileMenuProvider}>{authProviderLabel}</Text>
               <View style={styles.profileMenuDivider} />
               <Pressable
                 onPress={() => {
@@ -86,6 +104,8 @@ export default function HomeScreen({ onPlayAlone, onCreateRoom, onJoinRoom, onSi
             </View>
           </Pressable>
         </Modal>
+
+        {syncError ? <Text style={styles.syncErrorText}>{syncError}</Text> : null}
 
         <View style={styles.heroSection}>
           <View style={styles.readyRow}>
@@ -355,6 +375,12 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 2,
   },
+  profileMenuProvider: {
+    fontSize: 11,
+    color: '#777',
+    marginTop: 4,
+    fontWeight: '700',
+  },
   profileMenuDivider: {
     height: 1,
     backgroundColor: '#f0f0f0',
@@ -367,6 +393,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#E74C3C',
+  },
+  syncErrorText: {
+    fontSize: 13,
+    color: '#D43D3D',
+    fontWeight: '700',
+    marginBottom: 8,
   },
   heroSection: {
     marginBottom: 20,

@@ -11,15 +11,62 @@ import {
 } from 'react-native';
 
 type Props = {
-  onLogin: () => void;
+  onLogin: (email: string, password: string) => Promise<void>;
+  onGoogleLogin: () => Promise<void>;
   onGoToSignUp: () => void;
 };
 
-export default function LoginScreen({ onLogin, onGoToSignUp }: Props) {
+const getLoginErrorMessage = (error: unknown): string => {
+  const code = typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && typeof (error as { code?: unknown }).code === 'string'
+    ? String((error as { code: string }).code)
+    : '';
+
+  const message = error instanceof Error ? error.message : '';
+
+  if (message === 'GOOGLE_USERNAME_REQUIRED') {
+    return 'This Google account is new. Go to Sign Up and enter a username first.';
+  }
+
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+    return 'Invalid email or password.';
+  }
+
+  if (code === 'auth/popup-closed-by-user') {
+    return 'Google sign-in was cancelled.';
+  }
+
+  if (code === 'auth/popup-blocked') {
+    return 'Your browser blocked the Google popup. Please allow popups and try again.';
+  }
+
+  if (code === 'auth/network-request-failed') {
+    return 'Network error. Please check your connection and try again.';
+  }
+
+  if (code === 'auth/too-many-requests') {
+    return 'Too many attempts. Please wait a moment and try again.';
+  }
+
+  if (message === 'GOOGLE_SIGN_IN_WEB_ONLY') {
+    return 'Google sign-in is available on web only in this build.';
+  }
+
+  if (message.length > 0) {
+    return message;
+  }
+
+  return 'Login failed. Please try again.';
+};
+
+export default function LoginScreen({ onLogin, onGoogleLogin, onGoToSignUp }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const logoScale = useRef(new Animated.Value(0.5)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -58,17 +105,34 @@ export default function LoginScreen({ onLogin, onGoToSignUp }: Props) {
 
   const clearError = () => { if (error) setError(''); };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Please fill in all fields.');
       return;
     }
     setError('');
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      await onLogin(email.trim(), password.trim());
+    } catch (caughtError) {
+      setError(getLoginErrorMessage(caughtError));
+    } finally {
       setLoading(false);
-      onLogin();
-    }, 800);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setGoogleLoading(true);
+
+    try {
+      await onGoogleLogin();
+    } catch (caughtError) {
+      setError(getLoginErrorMessage(caughtError));
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -119,23 +183,39 @@ export default function LoginScreen({ onLogin, onGoToSignUp }: Props) {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
-            onPress={handleLogin}
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.button,
-              { transform: [{ scale: pressed ? 0.96 : 1 }] },
-              loading && { opacity: 0.7 },
-            ]}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FF8C00" size="small" />
-            ) : (
-              <Text style={styles.buttonText}>Login</Text>
-            )}
-          </Pressable>
+              onPress={handleLogin}
+              disabled={loading || googleLoading}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.96 : 1 }] },
+                (loading || googleLoading) && { opacity: 0.7 },
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FF8C00" size="small" />
+              ) : (
+                <Text style={styles.buttonText}>Login</Text>
+              )}
+            </Pressable>
 
-          <Pressable onPress={onGoToSignUp} style={styles.link}>
-            <Text style={styles.linkText}>
+           <Pressable
+             onPress={handleGoogleLogin}
+             disabled={loading || googleLoading}
+             style={({ pressed }) => [
+               styles.googleButton,
+               { transform: [{ scale: pressed ? 0.96 : 1 }] },
+               (loading || googleLoading) && { opacity: 0.7 },
+             ]}
+           >
+             {googleLoading ? (
+               <ActivityIndicator color="#FFFFFF" size="small" />
+             ) : (
+               <Text style={styles.googleButtonText}>Continue with Google</Text>
+             )}
+           </Pressable>
+
+           <Pressable onPress={onGoToSignUp} style={styles.link}>
+             <Text style={styles.linkText}>
               Don't have an account?{' '}
               <Text style={styles.linkBold}>Sign Up</Text>
             </Text>
@@ -236,6 +316,22 @@ const styles = StyleSheet.create({
   },
   link: {
     marginTop: 22,
+  },
+  googleButton: {
+    width: '100%',
+    minHeight: 56,
+    borderRadius: 30,
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  googleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   linkText: {
     color: 'rgba(255,255,255,0.8)',

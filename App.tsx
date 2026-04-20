@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type firebase from 'firebase/compat/app';
 import {
   ActivityIndicator,
   Pressable,
@@ -15,6 +16,19 @@ import DashboardScreen from './components/DashboardScreen';
 import SettingsScreen from './components/SettingsScreen';
 import CreateRoomScreen from './components/CreateRoomScreen';
 import JoinRoomScreen from './components/JoinRoomScreen';
+import {
+  getCurrentUserProfile,
+  initializeAuth,
+  loadQuizHistory,
+  onAuthStateChanged,
+  savePreferredLanguage,
+  saveQuizHistoryEntry,
+  signInWithEmail,
+  signInWithGoogle,
+  signOutUser,
+  signUpWithEmail,
+  type UserProfile,
+} from './services/firebaseAuth';
 
 const API_BASE_URL = 'https://gen.pollinations.ai/v1';
 const API_KEY = 'dummy';
@@ -86,7 +100,108 @@ export default function App() {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [quizHistory, setQuizHistory] = useState<QuizHistoryEntry[]>([]);
   const [lastQuizCategory, setLastQuizCategory] = useState('');
-  const [profileName] = useState('User');
+  const [authLoading, setAuthLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [syncError, setSyncError] = useState('');
+  const profileName = userProfile?.username ?? 'User';
+  const profileEmail = userProfile?.email ?? '';
+  const authProviderLabel = userProfile?.providerId === 'google.com' ? 'Google account' : 'Email account';
+  const getLocalProfileFromAuthUser = (user: firebase.User): UserProfile => ({
+    uid: user.uid,
+    username:
+      typeof user.displayName === 'string' && user.displayName.trim().length > 0
+        ? user.displayName.trim()
+        : (typeof user.email === 'string' && user.email.includes('@')
+            ? user.email.split('@')[0].trim() || 'User'
+            : 'User'),
+    email: user.email ?? '',
+    providerId: user.providerData?.[0]?.providerId ?? 'password',
+    preferredLanguage: 'ENGLISH',
+  });
+
+  useEffect(() => {
+    let didUnmount = false;
+    let unsubscribe: (() => void) | undefined;
+
+    initializeAuth()
+      .catch(() => {
+        if (!didUnmount) {
+          setSyncError('Session persistence is unavailable in this browser.');
+        }
+      })
+      .finally(() => {
+        if (didUnmount) {
+          return;
+        }
+
+        unsubscribe = onAuthStateChanged(
+          async (user) => {
+            if (!user) {
+              setUserProfile(null);
+              setQuizHistory([]);
+              setSelectedLanguage('ENGLISH');
+              setScreen('welcome');
+              setActiveTab('home');
+              setAuthLoading(false);
+              return;
+            }
+
+            try {
+              const profile = await getCurrentUserProfile();
+              let history: QuizHistoryEntry[] = [];
+              let historyLoadFailed = false;
+              try {
+                history = await loadQuizHistory(profile.uid);
+              } catch {
+                historyLoadFailed = true;
+                setSyncError('Signed in, but cloud quiz history is currently unavailable.');
+              }
+              setUserProfile(profile);
+              setSelectedLanguage(profile.preferredLanguage);
+              setQuizHistory(history);
+              if (!historyLoadFailed) {
+                setSyncError('');
+              }
+              setScreen('home');
+              setActiveTab('home');
+            } catch {
+              const localProfile = getLocalProfileFromAuthUser(user);
+              setUserProfile(localProfile);
+              setQuizHistory([]);
+              setSelectedLanguage(localProfile.preferredLanguage);
+              setSyncError('Signed in, but cloud profile sync failed. Using local session data.');
+              setScreen('home');
+              setActiveTab('home');
+            } finally {
+              setAuthLoading(false);
+            }
+          },
+          () => {
+            setAuthLoading(false);
+            setScreen('welcome');
+          },
+        );
+      });
+
+    return () => {
+      didUnmount = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  const handleLanguageChange = (language: QuizLanguage) => {
+    setSelectedLanguage(language);
+
+    if (!userProfile) {
+      return;
+    }
+
+    savePreferredLanguage(userProfile.uid, language).catch(() => {
+      setSyncError('Language was updated locally, but cloud sync failed.');
+    });
+  };
 
   const resetBuilder = () => {
     setNumQues(10);
@@ -338,16 +453,47 @@ export default function App() {
       isFirst: totalScore === quiz.length,
     };
     setQuizHistory((prev) => [...prev, entry]);
+    if (userProfile) {
+      saveQuizHistoryEntry(userProfile.uid, entry).catch(() => {
+        setSyncError('Your score was saved locally, but cloud sync failed.');
+      });
+    }
 
     setScreen('result');
   };
 
+  const handleEmailLogin = async (email: string, password: string) => {
+    await signInWithEmail(email, password);
+  };
+
+  const handleEmailSignUp = async (username: string, email: string, password: string) => {
+    await signUpWithEmail(username, email, password);
+  };
+
+  const handleGoogleLogin = async () => {
+    await signInWithGoogle();
+  };
+
+  const handleGoogleSignUp = async (username: string) => {
+    await signInWithGoogle(username);
+  };
+
   const handleSignOut = () => {
-    setScreen('welcome');
-    setActiveTab('home');
     resetBuilder();
     setQuiz([]);
+    signOutUser().catch(() => {
+      setSyncError('Sign out failed. Please try again.');
+    });
   };
+
+  if (authLoading) {
+    return (
+      <View style={styles.generatingContainer}>
+        <ActivityIndicator size="large" color="#FF8C00" />
+        <Text style={styles.generatingTitle}>Loading your account...</Text>
+      </View>
+    );
+  }
 
   if (screen === 'createRoom') {
     return (
@@ -370,7 +516,8 @@ export default function App() {
   if (screen === 'login') {
     return (
       <LoginScreen
-        onLogin={() => { setScreen('home'); setActiveTab('home'); }}
+        onLogin={handleEmailLogin}
+        onGoogleLogin={handleGoogleLogin}
         onGoToSignUp={() => setScreen('signup')}
       />
     );
@@ -379,7 +526,8 @@ export default function App() {
   if (screen === 'signup') {
     return (
       <SignUpScreen
-        onSignUp={() => { setScreen('home'); setActiveTab('home'); }}
+        onSignUp={handleEmailSignUp}
+        onGoogleSignUp={handleGoogleSignUp}
         onGoToLogin={() => setScreen('login')}
       />
     );
@@ -703,7 +851,7 @@ export default function App() {
       <SettingsScreen
         onSignOut={handleSignOut}
         selectedLanguage={selectedLanguage}
-        onLanguageChange={setSelectedLanguage}
+        onLanguageChange={handleLanguageChange}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />
@@ -716,6 +864,10 @@ export default function App() {
       onCreateRoom={() => setScreen('createRoom')}
       onJoinRoom={() => setScreen('joinRoom')}
       onSignOut={handleSignOut}
+      profileName={profileName}
+      profileEmail={profileEmail}
+      authProviderLabel={authProviderLabel}
+      syncError={syncError}
       activeTab={activeTab}
       onTabChange={setActiveTab}
       quizHistory={quizHistory}
