@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type firebase from 'firebase/compat/app';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,7 @@ import DashboardScreen from './components/DashboardScreen';
 import SettingsScreen from './components/SettingsScreen';
 import CreateRoomScreen from './components/CreateRoomScreen';
 import JoinRoomScreen from './components/JoinRoomScreen';
+import BuilderCategoryIcon from './components/BuilderCategoryIcons';
 import {
   getCurrentUserProfile,
   initializeAuth,
@@ -30,8 +32,10 @@ import {
   type UserProfile,
 } from './services/firebaseAuth';
 
+const APP_CONFIG = require('./config.json') as { apiKey?: string };
 const API_BASE_URL = 'https://gen.pollinations.ai/v1';
-const API_KEY = 'dummy';
+const API_KEY =
+  typeof APP_CONFIG.apiKey === 'string' ? APP_CONFIG.apiKey.trim() : '';
 const API_MODEL = 'perplexity-fast';
 
 type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
@@ -80,15 +84,14 @@ type QuizHistoryEntry = {
   isFirst: boolean;
 };
 
-const CATEGORY_OPTIONS: { key: QuizCategory; label: string; emoji: string }[] =
-  [
-    { key: 'entertainment', label: 'Entertainment', emoji: '🎬' },
-    { key: 'sports', label: 'Sports', emoji: '⚽' },
-    { key: 'general_knowledge', label: 'General Knowledge', emoji: '🧠' },
-    { key: 'science', label: 'Science', emoji: '🔬' },
-    { key: 'history', label: 'History', emoji: '📜' },
-    { key: 'custom', label: 'Custom', emoji: '✏️' },
-  ];
+const CATEGORY_OPTIONS: { key: QuizCategory; label: string }[] = [
+  { key: 'entertainment', label: 'Entertainment' },
+  { key: 'sports', label: 'Sports' },
+  { key: 'general_knowledge', label: 'General Knowledge' },
+  { key: 'science', label: 'Science' },
+  { key: 'history', label: 'History' },
+  { key: 'custom', label: 'Custom' },
+];
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
@@ -101,6 +104,9 @@ export default function App() {
     useState<QuizLanguage>('ENGLISH');
   const [selectedCategory, setSelectedCategory] =
     useState<QuizCategory>('general_knowledge');
+  const builderTextAnim = useRef(new Animated.Value(0)).current;
+  const builderControlsAnim = useRef(new Animated.Value(0)).current;
+  const selectionPulseAnim = useRef(new Animated.Value(0)).current;
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [builderError, setBuilderError] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -209,6 +215,58 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (screen !== 'builder') {
+      return;
+    }
+
+    builderTextAnim.setValue(0);
+    builderControlsAnim.setValue(0);
+
+    Animated.sequence([
+      Animated.timing(builderTextAnim, {
+        toValue: 1,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.timing(builderControlsAnim, {
+        toValue: 1,
+        duration: 380,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [screen, builderTextAnim, builderControlsAnim]);
+
+  useEffect(() => {
+    if (screen !== 'builder') {
+      selectionPulseAnim.stopAnimation();
+      selectionPulseAnim.setValue(0);
+      return;
+    }
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(selectionPulseAnim, {
+          toValue: 1,
+          duration: 760,
+          useNativeDriver: true,
+        }),
+        Animated.timing(selectionPulseAnim, {
+          toValue: 0,
+          duration: 760,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulseLoop.start();
+
+    return () => {
+      pulseLoop.stop();
+      selectionPulseAnim.stopAnimation();
+      selectionPulseAnim.setValue(0);
+    };
+  }, [screen, selectionPulseAnim]);
+
   const handleLanguageChange = (language: QuizLanguage) => {
     setSelectedLanguage(language);
 
@@ -255,6 +313,7 @@ export default function App() {
     language: QuizLanguage,
   ): Promise<{ questions: QuizQuestion[]; categories: string[] }> => {
     const requestedQuestionCount = totalQuestions + 4;
+    const maxAttempts = language === 'ARABIC' ? 4 : 3;
 
     const shuffleOptions = (items: string[]) => {
       const shuffled = [...items];
@@ -294,6 +353,232 @@ export default function App() {
       return true;
     };
 
+    const wait = (ms: number) =>
+      new Promise(resolve => {
+        setTimeout(resolve, ms);
+      });
+
+    const getObject = (value: unknown): Record<string, unknown> | null => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+      }
+      return value as Record<string, unknown>;
+    };
+
+    const readFirstValue = (
+      source: Record<string, unknown>,
+      keys: string[],
+    ): unknown => {
+      for (const key of keys) {
+        if (key in source) {
+          return source[key];
+        }
+      }
+      return undefined;
+    };
+
+    const readString = (
+      source: Record<string, unknown>,
+      keys: string[],
+    ): string => {
+      const value = readFirstValue(source, keys);
+      if (typeof value !== 'string') {
+        return '';
+      }
+      return value.trim();
+    };
+
+    const readNumber = (
+      source: Record<string, unknown>,
+      keys: string[],
+    ): number | null => {
+      const value = readFirstValue(source, keys);
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+      return null;
+    };
+
+    const readStringArray = (
+      source: Record<string, unknown>,
+      keys: string[],
+    ): string[] => {
+      const value = readFirstValue(source, keys);
+      if (!Array.isArray(value)) {
+        return [];
+      }
+      return value
+        .map(item =>
+          typeof item === 'string' ? item.trim() : String(item).trim(),
+        )
+        .filter(item => item.length > 0);
+    };
+
+    const parseProviderContent = (content: string): QuizPayload => {
+      const trimmed = content.trim();
+      const withoutCodeFences = trimmed
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+
+      const parseCandidates = [withoutCodeFences];
+      const firstBrace = withoutCodeFences.indexOf('{');
+      const lastBrace = withoutCodeFences.lastIndexOf('}');
+      if (firstBrace >= 0 && lastBrace > firstBrace) {
+        parseCandidates.push(
+          withoutCodeFences.slice(firstBrace, lastBrace + 1),
+        );
+      }
+
+      for (const candidate of parseCandidates) {
+        try {
+          const rawPayload = JSON.parse(candidate) as unknown;
+          const payloadObject = getObject(rawPayload);
+          if (!payloadObject) {
+            continue;
+          }
+
+          const categories = readStringArray(payloadObject, [
+            'categories',
+            'category',
+            'tags',
+            'التصنيفات',
+            'الفئات',
+          ]);
+
+          const questionsValue = readFirstValue(payloadObject, [
+            'questions',
+            'quizQuestions',
+            'items',
+            'quiz',
+            'الأسئلة',
+            'اسئلة',
+            'أسئلة',
+          ]);
+          if (!Array.isArray(questionsValue) || questionsValue.length === 0) {
+            continue;
+          }
+
+          const questions = questionsValue
+            .map(entry => {
+              const questionObject = getObject(entry);
+              if (!questionObject) {
+                return null;
+              }
+
+              const question = readString(questionObject, [
+                'question',
+                'prompt',
+                'text',
+                'questionText',
+                'السؤال',
+                'سؤال',
+              ]);
+              const options = readStringArray(questionObject, [
+                'options',
+                'choices',
+                'answers',
+                'الإجابات',
+                'الاجابات',
+                'اختيارات',
+                'خيارات',
+              ]).slice(0, 4);
+              if (!question || options.length === 0) {
+                return null;
+              }
+
+              let correctAnswer = readString(questionObject, [
+                'correctAnswer',
+                'answer',
+                'correct',
+                'الإجابة_الصحيحة',
+                'الاجابة_الصحيحة',
+                'الإجابة',
+                'الجواب_الصحيح',
+              ]);
+
+              if (!correctAnswer) {
+                const correctIndex = readNumber(questionObject, [
+                  'correctIndex',
+                  'answerIndex',
+                  'index',
+                  'ترتيب_الإجابة_الصحيحة',
+                ]);
+                if (
+                  typeof correctIndex === 'number' &&
+                  correctIndex >= 0 &&
+                  correctIndex < options.length
+                ) {
+                  correctAnswer = options[correctIndex];
+                }
+              }
+
+              if (!correctAnswer || !options.includes(correctAnswer)) {
+                correctAnswer = options[0];
+              }
+
+              return {
+                question,
+                options,
+                correctAnswer,
+              };
+            })
+            .filter(
+              (
+                question,
+              ): question is {
+                question: string;
+                options: string[];
+                correctAnswer: string;
+              } => question !== null,
+            );
+
+          if (questions.length === 0) {
+            continue;
+          }
+
+          return {
+            categories,
+            questions,
+          };
+        } catch {
+          continue;
+        }
+      }
+
+      throw new Error('INVALID_JSON_FROM_PROVIDER');
+    };
+
+    const isRetriableError = (error: Error): boolean => {
+      if (
+        error.message.startsWith('INVALID_PROVIDER_RESPONSE') ||
+        error.message.startsWith('INVALID_JSON_FROM_PROVIDER') ||
+        error.message.startsWith('NO_QUESTIONS_RETURNED') ||
+        error.message.startsWith('LOW_QUALITY_QUIZ')
+      ) {
+        return true;
+      }
+      if (error.message.startsWith('API_HTTP_429')) {
+        return true;
+      }
+      if (/^API_HTTP_5\d{2}/.test(error.message)) {
+        return true;
+      }
+      if (
+        error.message.includes('Network request failed') ||
+        error.message.includes('Failed to fetch')
+      ) {
+        return true;
+      }
+      return false;
+    };
+
     const prompt = [
       `Create ${requestedQuestionCount} multiple-choice quiz questions based on the provided topic.`,
       `Topic: ${inputFormula}`,
@@ -306,6 +591,7 @@ export default function App() {
       '- Each question must have exactly 4 answer options.',
       '- Add a correctAnswer field that exactly matches one option string.',
       '- Write all questions and answer options in the requested language.',
+      '- Keep JSON field names in English exactly as: categories, questions, question, options, correctAnswer.',
       '- Treat broad topics like history, war, science, or math as subject-matter topics, not as vocabulary words.',
       '- Do not generate translation, spelling, word-meaning, or language-learning questions unless the user explicitly asks for language study.',
       '- Never ask self-referential or tautological questions.',
@@ -318,111 +604,131 @@ export default function App() {
       '{"categories":["..."],"questions":[{"question":"...","options":["...","...","...","..."],"correctAnswer":"..."}]}',
     ].join('\n');
 
-    const response = await fetch(`${API_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: API_MODEL,
-        temperature: 0.7,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You generate high-quality quiz questions. Output ONLY valid JSON with no markdown, no greetings, no extra text. Always include a "categories" array and a "questions" array. Respect the requested language.',
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${API_KEY}`,
           },
-          { role: 'user', content: prompt },
-        ],
-      }),
-    });
+          body: JSON.stringify({
+            model: API_MODEL,
+            temperature: attempt > 1 ? 0.6 : 0.7,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You generate high-quality quiz questions. Output ONLY valid JSON with no markdown, no greetings, no extra text. Always include a "categories" array and a "questions" array. Keep JSON keys in English. Respect the requested language.',
+              },
+              { role: 'user', content: prompt },
+            ],
+          }),
+        });
 
-    if (!response.ok) {
-      const details = await response.text();
-      throw new Error(`API_HTTP_${response.status}: ${details.slice(0, 200)}`);
-    }
+        if (!response.ok) {
+          const details = await response.text();
+          throw new Error(
+            `API_HTTP_${response.status}: ${details.slice(0, 200)}`,
+          );
+        }
 
-    const result = await response.json();
-    const content = result?.choices?.[0]?.message?.content;
+        const result = await response.json();
+        const content = result?.choices?.[0]?.message?.content;
 
-    if (typeof content !== 'string' || !content.trim()) {
-      throw new Error('INVALID_PROVIDER_RESPONSE');
-    }
+        if (typeof content !== 'string' || !content.trim()) {
+          throw new Error('INVALID_PROVIDER_RESPONSE');
+        }
 
-    let parsed: QuizPayload;
-    try {
-      parsed = JSON.parse(content) as QuizPayload;
-    } catch {
-      throw new Error('INVALID_JSON_FROM_PROVIDER');
-    }
+        const parsed = parseProviderContent(content);
+        if (!Array.isArray(parsed.questions) || parsed.questions.length === 0) {
+          throw new Error('NO_QUESTIONS_RETURNED');
+        }
 
-    if (!Array.isArray(parsed.questions) || parsed.questions.length === 0) {
-      throw new Error('NO_QUESTIONS_RETURNED');
-    }
+        const aiCategories = Array.isArray(parsed.categories)
+          ? parsed.categories
+          : [];
 
-    const aiCategories = Array.isArray(parsed.categories)
-      ? parsed.categories
-      : [];
+        const validQuestions: QuizQuestion[] = [];
+        const seenQuestions = new Set<string>();
 
-    const validQuestions: QuizQuestion[] = [];
-    const seenQuestions = new Set<string>();
+        for (const item of parsed.questions) {
+          const rawQuestion = String(item.question).trim();
+          const options = Array.isArray(item.options)
+            ? item.options
+                .map(option => String(option).trim())
+                .filter(option => option.length > 0)
+                .slice(0, 4)
+            : [];
 
-    for (const item of parsed.questions) {
-      const rawQuestion = String(item.question).trim();
-      const options = Array.isArray(item.options)
-        ? item.options
-            .map(option => String(option).trim())
-            .filter(option => option.length > 0)
-            .slice(0, 4)
-        : [];
+          while (options.length < 4) {
+            options.push(
+              language === 'ARABIC'
+                ? `خيار ${options.length + 1}`
+                : `Option ${options.length + 1}`,
+            );
+          }
 
-      while (options.length < 4) {
-        options.push(`Option ${options.length + 1}`);
+          const normalizedCorrectAnswer = options.includes(item.correctAnswer)
+            ? item.correctAnswer
+            : options[0];
+          const shuffledOptions = shuffleOptions(options);
+          const questionKey = normalizeText(rawQuestion);
+
+          if (
+            seenQuestions.has(questionKey) ||
+            !isLogicalQuestion(
+              rawQuestion,
+              shuffledOptions,
+              normalizedCorrectAnswer,
+            )
+          ) {
+            continue;
+          }
+
+          seenQuestions.add(questionKey);
+          validQuestions.push({
+            id: '',
+            question: rawQuestion,
+            options: shuffledOptions,
+            correctAnswer: normalizedCorrectAnswer,
+          });
+
+          if (validQuestions.length === totalQuestions) {
+            break;
+          }
+        }
+
+        if (validQuestions.length < totalQuestions) {
+          throw new Error('LOW_QUALITY_QUIZ');
+        }
+
+        return {
+          categories: aiCategories,
+          questions: validQuestions.map((item, index) => ({
+            ...item,
+            id: `${index + 1}`,
+            question: `${index + 1}. ${item.question}`,
+          })),
+        };
+      } catch (error) {
+        const normalizedError =
+          error instanceof Error ? error : new Error('QUIZ_GENERATION_FAILED');
+        lastError = normalizedError;
+
+        const shouldRetry =
+          attempt < maxAttempts && isRetriableError(normalizedError);
+        if (!shouldRetry) {
+          break;
+        }
+
+        await wait(300 * attempt);
       }
-
-      const normalizedCorrectAnswer = options.includes(item.correctAnswer)
-        ? item.correctAnswer
-        : options[0];
-      const shuffledOptions = shuffleOptions(options);
-      const questionKey = normalizeText(rawQuestion);
-
-      if (
-        seenQuestions.has(questionKey) ||
-        !isLogicalQuestion(
-          rawQuestion,
-          shuffledOptions,
-          normalizedCorrectAnswer,
-        )
-      ) {
-        continue;
-      }
-
-      seenQuestions.add(questionKey);
-      validQuestions.push({
-        id: '',
-        question: rawQuestion,
-        options: shuffledOptions,
-        correctAnswer: normalizedCorrectAnswer,
-      });
-
-      if (validQuestions.length === totalQuestions) {
-        break;
-      }
     }
 
-    if (validQuestions.length < totalQuestions) {
-      throw new Error('LOW_QUALITY_QUIZ');
-    }
-
-    return {
-      categories: aiCategories,
-      questions: validQuestions.map((item, index) => ({
-        ...item,
-        id: `${index + 1}`,
-        question: `${index + 1}. ${item.question}`,
-      })),
-    };
+    throw lastError ?? new Error('QUIZ_GENERATION_FAILED');
   };
 
   const handleStartQuiz = async () => {
@@ -464,6 +770,15 @@ export default function App() {
         error.message.startsWith('LOW_QUALITY_QUIZ')
       ) {
         setBuilderError('The generated quiz was low quality. Try again.');
+      } else if (
+        error instanceof Error &&
+        (error.message.startsWith('INVALID_JSON_FROM_PROVIDER') ||
+          error.message.startsWith('INVALID_PROVIDER_RESPONSE') ||
+          error.message.startsWith('NO_QUESTIONS_RETURNED'))
+      ) {
+        setBuilderError(
+          'Quiz service returned an incomplete response. Please try again.',
+        );
       } else {
         setBuilderError(
           'Quiz generation failed. Check your network, then try again.',
@@ -534,6 +849,35 @@ export default function App() {
     signOutUser().catch(() => {
       setSyncError('Sign out failed. Please try again.');
     });
+  };
+
+  const builderTextTranslateY = builderTextAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [16, 0],
+  });
+  const builderControlsTranslateX = builderControlsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-28, 0],
+  });
+  const categoryPulseScale = selectionPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1.01, 1.06],
+  });
+  const circlePulseScale = selectionPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1.03, 1.1],
+  });
+  const controlPulseScale = selectionPulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1.02, 1.08],
+  });
+  const builderTextAnimatedStyle = {
+    opacity: builderTextAnim,
+    transform: [{ translateY: builderTextTranslateY }],
+  };
+  const builderControlsAnimatedStyle = {
+    opacity: builderControlsAnim,
+    transform: [{ translateX: builderControlsTranslateX }],
   };
 
   if (authLoading) {
@@ -802,55 +1146,81 @@ export default function App() {
         <View pointerEvents="none" style={styles.builderGlowTop} />
         <View pointerEvents="none" style={styles.builderGlowBottom} />
         <ScrollView contentContainerStyle={styles.builderContent}>
-          <Pressable
-            onPress={() => setScreen('home')}
-            style={styles.builderBack}
-          >
-            <Text style={styles.builderBackText}>← Back</Text>
-          </Pressable>
+          <Animated.View style={builderTextAnimatedStyle}>
+            <Pressable
+              onPress={() => setScreen('home')}
+              style={styles.builderBack}
+            >
+              <Text style={styles.builderBackText}>← Back</Text>
+            </Pressable>
 
-          <View style={styles.builderHero}>
-            <Text style={styles.builderTitle}>Game Room</Text>
-            <Text style={styles.builderSubtitle}>
-              Set up your quiz challenge
-            </Text>
-          </View>
+            <View style={styles.builderHero}>
+              <Text style={styles.builderTitle}>Game Room</Text>
+              <Text style={styles.builderSubtitle}>
+                Set up your quiz challenge
+              </Text>
+            </View>
+          </Animated.View>
 
           {/* Category Grid */}
-          <Text style={styles.builderSection}>Choose Category</Text>
-          <View style={styles.categoryGrid}>
-            {CATEGORY_OPTIONS.map(cat => (
-              <Pressable
-                key={cat.key}
-                onPress={() => {
-                  setSelectedCategory(cat.key);
-                  if (builderError) setBuilderError('');
-                }}
-                style={[
-                  styles.categoryCard,
-                  selectedCategory === cat.key && styles.categoryCardActive,
-                ]}
-              >
-                <View
+          <Animated.Text
+            style={[styles.builderSection, builderTextAnimatedStyle]}
+          >
+            Choose Category
+          </Animated.Text>
+          <Animated.View style={builderControlsAnimatedStyle}>
+            <View style={styles.categoryGrid}>
+              {CATEGORY_OPTIONS.map(cat => (
+                <Animated.View
+                  key={cat.key}
                   style={[
-                    styles.categoryEmojiWrap,
-                    selectedCategory === cat.key &&
-                      styles.categoryEmojiWrapActive,
+                    styles.categoryCardWrap,
+                    selectedCategory === cat.key && {
+                      transform: [{ scale: categoryPulseScale }],
+                    },
                   ]}
                 >
-                  <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.categoryLabel,
-                    selectedCategory === cat.key && styles.categoryLabelActive,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                  <Pressable
+                    onPress={() => {
+                      setSelectedCategory(cat.key);
+                      if (builderError) setBuilderError('');
+                    }}
+                    style={({ pressed }) => [
+                      styles.categoryCard,
+                      selectedCategory === cat.key && styles.categoryCardActive,
+                      pressed && styles.categoryCardPressed,
+                    ]}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.categoryEmojiWrap,
+                        selectedCategory === cat.key &&
+                          styles.categoryEmojiWrapActive,
+                        selectedCategory === cat.key && {
+                          transform: [{ scale: circlePulseScale }],
+                        },
+                      ]}
+                    >
+                      <BuilderCategoryIcon
+                        category={cat.key}
+                        active={selectedCategory === cat.key}
+                        size={28}
+                      />
+                    </Animated.View>
+                    <Text
+                      style={[
+                        styles.categoryLabel,
+                        selectedCategory === cat.key &&
+                          styles.categoryLabelActive,
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </View>
+          </Animated.View>
 
           {/* Custom topic input — only for custom */}
           {selectedCategory === 'custom' && (
@@ -875,63 +1245,96 @@ export default function App() {
           ) : null}
 
           {/* Number of questions */}
-          <Text style={styles.builderSection}>Questions</Text>
-          <View style={styles.numRow}>
-            {[5, 10, 15, 20].map(n => (
-              <Pressable
-                key={n}
-                onPress={() => setNumQues(n)}
-                style={[
-                  styles.numCircle,
-                  numques === n && styles.numCircleActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.numText,
-                    numques === n && styles.numTextActive,
-                  ]}
+          <Animated.Text
+            style={[styles.builderSection, builderTextAnimatedStyle]}
+          >
+            Questions
+          </Animated.Text>
+          <Animated.View style={builderControlsAnimatedStyle}>
+            <View style={styles.numRow}>
+              {[5, 10, 15, 20].map(n => (
+                <Animated.View
+                  key={n}
+                  style={
+                    numques === n
+                      ? { transform: [{ scale: controlPulseScale }] }
+                      : undefined
+                  }
                 >
-                  {n}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                  <Pressable
+                    onPress={() => setNumQues(n)}
+                    style={({ pressed }) => [
+                      styles.numCircle,
+                      numques === n && styles.numCircleActive,
+                      pressed && styles.numCirclePressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.numText,
+                        numques === n && styles.numTextActive,
+                      ]}
+                    >
+                      {n}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </View>
+          </Animated.View>
 
           {/* Difficulty */}
-          <Text style={styles.builderSection}>Difficulty</Text>
-          <View style={styles.diffRow}>
-            {difficulties.map(item => (
-              <Pressable
-                key={item}
-                onPress={() => setDiff(item)}
-                style={[
-                  styles.diffPill,
-                  selectedDiff === item && styles.diffPillActive,
-                ]}
-              >
-                <Text
+          <Animated.Text
+            style={[styles.builderSection, builderTextAnimatedStyle]}
+          >
+            Difficulty
+          </Animated.Text>
+          <Animated.View style={builderControlsAnimatedStyle}>
+            <View style={styles.diffRow}>
+              {difficulties.map(item => (
+                <Animated.View
+                  key={item}
                   style={[
-                    styles.diffPillText,
-                    selectedDiff === item && styles.diffPillTextActive,
+                    styles.diffItemWrap,
+                    selectedDiff === item && {
+                      transform: [{ scale: controlPulseScale }],
+                    },
                   ]}
                 >
-                  {item}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                  <Pressable
+                    onPress={() => setDiff(item)}
+                    style={({ pressed }) => [
+                      styles.diffPill,
+                      selectedDiff === item && styles.diffPillActive,
+                      pressed && styles.diffPillPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.diffPillText,
+                        selectedDiff === item && styles.diffPillTextActive,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </View>
+          </Animated.View>
 
           {/* Start button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.startButton,
-              { opacity: pressed ? 0.85 : 1 },
-            ]}
-            onPress={handleStartQuiz}
-          >
-            <Text style={styles.startButtonText}>Start Quiz</Text>
-          </Pressable>
+          <Animated.View style={builderControlsAnimatedStyle}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.startButton,
+                pressed && styles.startButtonPressed,
+              ]}
+              onPress={handleStartQuiz}
+            >
+              <Text style={styles.startButtonText}>Start Quiz</Text>
+            </Pressable>
+          </Animated.View>
         </ScrollView>
       </View>
     );
@@ -1050,8 +1453,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 12,
   },
-  categoryCard: {
+  categoryCardWrap: {
     width: '47%',
+  },
+  categoryCard: {
+    width: '100%',
     backgroundColor: '#232741',
     borderRadius: 20,
     borderWidth: 1.8,
@@ -1061,27 +1467,30 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   categoryCardActive: {
-    backgroundColor: '#FF8C00',
-    borderColor: '#FF8C00',
-    shadowColor: '#FF8C00',
+    backgroundColor: '#22C55E',
+    borderColor: '#22C55E',
+    shadowColor: '#22C55E',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 6,
   },
+  categoryCardPressed: {
+    transform: [{ scale: 1.01 }],
+  },
   categoryEmojiWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   categoryEmojiWrapActive: {
-    backgroundColor: 'rgba(255,255,255,0.24)',
-  },
-  categoryEmoji: {
-    fontSize: 26,
+    backgroundColor: 'rgba(236,253,243,0.35)',
+    borderColor: 'rgba(20,83,45,0.45)',
   },
   categoryLabel: {
     fontSize: 15,
@@ -1129,13 +1538,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   numCircleActive: {
-    backgroundColor: '#FF8C00',
-    borderColor: '#FF8C00',
-    shadowColor: '#FF8C00',
+    backgroundColor: '#22C55E',
+    borderColor: '#22C55E',
+    shadowColor: '#22C55E',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 12,
     elevation: 8,
+  },
+  numCirclePressed: {
+    transform: [{ scale: 1.02 }],
   },
   numText: {
     fontSize: 20,
@@ -1151,8 +1563,11 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 32,
   },
-  diffPill: {
+  diffItemWrap: {
     flex: 1,
+  },
+  diffPill: {
+    width: '100%',
     paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: '#232741',
@@ -1161,8 +1576,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   diffPillActive: {
-    backgroundColor: '#FF8C00',
-    borderColor: '#FF8C00',
+    backgroundColor: '#22C55E',
+    borderColor: '#22C55E',
+  },
+  diffPillPressed: {
+    transform: [{ scale: 1.01 }],
   },
   diffPillText: {
     fontSize: 14,
@@ -1184,6 +1602,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 8,
+  },
+  startButtonPressed: {
+    transform: [{ scale: 0.99 }],
+    opacity: 0.92,
   },
   startButtonText: {
     color: '#FFFFFF',
