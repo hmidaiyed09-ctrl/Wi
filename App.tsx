@@ -796,6 +796,39 @@ export default function App() {
   const currentQuestion = quiz[currentQuestionIndex];
   const answeredCount = Object.keys(selectedAnswers).length;
 
+  const TIMER_SECONDS: Record<Difficulty, number> = {
+    EASY: 30,
+    MEDIUM: 25,
+    HARD: 20,
+  };
+  const timerLimit = TIMER_SECONDS[selectedDiff];
+  const [timeLeft, setTimeLeft] = useState(timerLimit);
+
+  useEffect(() => {
+    if (screen !== 'quiz' || isReviewMode) {
+      return;
+    }
+    setTimeLeft(timerLimit);
+  }, [currentQuestionIndex, screen, isReviewMode, timerLimit]);
+
+  useEffect(() => {
+    if (screen !== 'quiz' || isReviewMode) {
+      return;
+    }
+    if (timeLeft <= 0) {
+      if (currentQuestionIndex < quiz.length - 1) {
+        setCurrentQuestionIndex(prev => prev + 1);
+      } else {
+        finishQuiz();
+      }
+      return;
+    }
+    const interval = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timeLeft, screen, isReviewMode, currentQuestionIndex, quiz.length]);
+
   const finishQuiz = () => {
     const totalScore = quiz.reduce((count, item) => {
       return selectedAnswers[item.id] === item.correctAnswer
@@ -963,6 +996,25 @@ export default function App() {
         <Text style={styles.questionCounter}>
           Question {currentQuestionIndex + 1} / {quiz.length}
         </Text>
+        {!isReviewMode && (
+          <View style={styles.timerRow}>
+            <View
+              style={[
+                styles.timerBadge,
+                timeLeft <= 5 && styles.timerBadgeCritical,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.timerText,
+                  timeLeft <= 5 && styles.timerTextCritical,
+                ]}
+              >
+                ⏱ {timeLeft}s
+              </Text>
+            </View>
+          </View>
+        )}
 
         {currentQuestion ? (
           <View style={styles.questionCardLarge}>
@@ -1684,6 +1736,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     color: '#8B8FAD',
+  },
+
+  /* Timer */
+  timerRow: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  timerBadge: {
+    backgroundColor: '#FFF2DE',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderWidth: 2,
+    borderColor: '#D6B88D',
+  },
+  timerBadgeCritical: {
+    backgroundColor: '#FCE1E1',
+    borderColor: '#D93B3B',
+  },
+  timerText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#6B4A1F',
+  },
+  timerTextCritical: {
+    color: '#D93B3B',
   },
 
   /* Quiz */
