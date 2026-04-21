@@ -322,3 +322,58 @@ export const savePreferredLanguage = async (
     { merge: true },
   );
 };
+
+// --- Seen Questions (anti-repeat) ---
+
+export type SeenQuestion = {
+  question: string;
+  createdAt: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+};
+
+type SeenCategoryDocument = {
+  questions: SeenQuestion[];
+};
+
+const QUESTIONS_LIMIT = 50;
+
+const seenQuestionsRef = (uid: string, category: string) =>
+  usersCollection.doc(uid).collection('seenQuestions').doc(category);
+
+export const loadSeenQuestions = async (
+  uid: string,
+  category: string,
+): Promise<SeenQuestion[]> => {
+  const snapshot = await seenQuestionsRef(uid, category).get();
+  if (!snapshot.exists) {
+    return [];
+  }
+  const data = snapshot.data() as Partial<SeenCategoryDocument> | undefined;
+  if (!Array.isArray(data?.questions)) {
+    return [];
+  }
+  return data.questions;
+};
+
+export const saveSeenQuestionsAfterQuiz = async (
+  uid: string,
+  category: string,
+  newQuestions: SeenQuestion[],
+): Promise<void> => {
+  const docRef = seenQuestionsRef(uid, category);
+  const snapshot = await docRef.get();
+
+  let existingQuestions: SeenQuestion[] = [];
+  if (snapshot.exists) {
+    const data = snapshot.data() as Partial<SeenCategoryDocument> | undefined;
+    existingQuestions = Array.isArray(data?.questions) ? data.questions : [];
+  }
+
+  let updatedQuestions = [...existingQuestions, ...newQuestions];
+
+  if (updatedQuestions.length > QUESTIONS_LIMIT) {
+    updatedQuestions = updatedQuestions.slice(updatedQuestions.length - QUESTIONS_LIMIT);
+  }
+
+  await docRef.set({ questions: updatedQuestions });
+};

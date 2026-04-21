@@ -22,13 +22,16 @@ import {
   getCurrentUserProfile,
   initializeAuth,
   loadQuizHistory,
+  loadSeenQuestions,
   onAuthStateChanged,
   savePreferredLanguage,
   saveQuizHistoryEntry,
+  saveSeenQuestionsAfterQuiz,
   signInWithEmail,
   signInWithGoogle,
   signOutUser,
   signUpWithEmail,
+  type SeenQuestion,
   type UserProfile,
 } from './services/firebaseAuth';
 
@@ -117,6 +120,7 @@ export default function App() {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [quizHistory, setQuizHistory] = useState<QuizHistoryEntry[]>([]);
   const [lastQuizCategory, setLastQuizCategory] = useState('');
+  const localSeenQuestionsRef = useRef<Record<string, string[]>>({});
   const [authLoading, setAuthLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [syncError, setSyncError] = useState('');
@@ -311,6 +315,7 @@ export default function App() {
     totalQuestions: number,
     difficulty: Difficulty,
     language: QuizLanguage,
+    excludeQuestions: string[] = [],
   ): Promise<{ questions: QuizQuestion[]; categories: string[] }> => {
     const requestedQuestionCount = totalQuestions + 4;
     const maxAttempts = language === 'ARABIC' ? 4 : 3;
@@ -579,11 +584,38 @@ export default function App() {
       return false;
     };
 
+    const difficultyGuide: Record<Difficulty, string> = {
+      EASY: [
+        'EASY (Ubiquitous Knowledge):',
+        '- Exposure: High. Information that permeates everyday life, global pop culture, mainstream news, or basic primary education.',
+        '- Depth: Surface-level. Target primary subjects, famous protagonists, or broad universally accepted facts.',
+        '- Logic: If an average person walking down the street in any major city might know it without having a specific interest in the category, it qualifies as Easy.',
+      ].join('\n'),
+      MEDIUM: [
+        'MEDIUM (Attentive Knowledge):',
+        '- Exposure: Moderate. Encountered in secondary education, dedicated news reading, or mainstream hobbyist communities.',
+        '- Depth: One layer deep. Move past the "main character" and target secondary figures, notable milestones, relationships between concepts, or specific terminology within a well-known field.',
+        '- Logic: The user needs to have paid attention in class or actively consumed media about this topic to know the answer.',
+      ].join('\n'),
+      HARD: [
+        'HARD (Specialized Knowledge):',
+        '- Exposure: Low. Found in academic texts, niche communities, localized regional histories, or professional environments.',
+        '- Depth: Granular. Target functional mechanics, specific localized policies, obscure dates, underlying systems, or entities that did not have global mainstream impact.',
+        '- Logic: The user must be an active enthusiast, a localized native, or an academic in this specific sub-field to confidently know the answer. Avoid western-centric bias; rely on specialized global data.',
+      ].join('\n'),
+    };
+
     const prompt = [
       `Create ${requestedQuestionCount} multiple-choice quiz questions based on the provided topic.`,
       `Topic: ${inputFormula}`,
       `Difficulty: ${difficulty}`,
       `Language: ${language}`,
+      '',
+      'Difficulty Level Logic:',
+      'Determine difficulty by analyzing required knowledge against three metrics: Information Exposure, Cognitive Depth, and Domain Specialization.',
+      difficultyGuide[difficulty],
+      `ALL ${requestedQuestionCount} questions MUST strictly match the ${difficulty} difficulty tier described above.`,
+      '',
       'Rules:',
       '- Return ONLY valid JSON. No greetings, no explanations, no markdown.',
       '- Include a "categories" field: an array of category strings that best describe this quiz (e.g. ["entertainment"], ["sports", "history"]).',
@@ -600,6 +632,13 @@ export default function App() {
       '- Make wrong answers plausible and from the same category as the correct answer.',
       '- Avoid repeated questions and avoid duplicate options.',
       '- Do not include explanations.',
+      ...(excludeQuestions.length > 0
+        ? [
+            '',
+            'IMPORTANT — Do NOT reuse or rephrase any of the following previously seen questions:',
+            ...excludeQuestions.map((q, i) => `${i + 1}. ${q}`),
+          ]
+        : []),
       'JSON shape:',
       '{"categories":["..."],"questions":[{"question":"...","options":["...","...","...","..."],"correctAnswer":"..."}]}',
     ].join('\n');
@@ -621,7 +660,7 @@ export default function App() {
               {
                 role: 'system',
                 content:
-                  'You generate high-quality quiz questions. Output ONLY valid JSON with no markdown, no greetings, no extra text. Always include a "categories" array and a "questions" array. Keep JSON keys in English. Respect the requested language.',
+                  'You generate high-quality quiz questions. Output ONLY valid JSON with no markdown, no greetings, no extra text. Always include a "categories" array and a "questions" array. Keep JSON keys in English. Respect the requested language. If a list of previously seen questions is provided, you MUST NOT reuse or rephrase any of them.',
               },
               { role: 'user', content: prompt },
             ],
@@ -653,6 +692,9 @@ export default function App() {
 
         const validQuestions: QuizQuestion[] = [];
         const seenQuestions = new Set<string>();
+        const excludeNormalized = new Set(
+          excludeQuestions.map(q => normalizeText(q)),
+        );
 
         for (const item of parsed.questions) {
           const rawQuestion = String(item.question).trim();
@@ -679,6 +721,7 @@ export default function App() {
 
           if (
             seenQuestions.has(questionKey) ||
+            excludeNormalized.has(questionKey) ||
             !isLogicalQuestion(
               rawQuestion,
               shuffledOptions,
@@ -744,11 +787,28 @@ export default function App() {
     setScreen('generating');
 
     try {
+      let excludeQuestions: string[] = [];
+      if (selectedCategory !== 'custom') {
+        const localSeen = localSeenQuestionsRef.current[selectedCategory] ?? [];
+        let firebaseSeen: string[] = [];
+        if (userProfile) {
+          try {
+            const seen = await loadSeenQuestions(userProfile.uid, selectedCategory);
+            firebaseSeen = seen.map(q => q.question);
+          } catch {
+            // Silently continue — dedup is best-effort
+          }
+        }
+        const merged = new Set([...localSeen, ...firebaseSeen]);
+        excludeQuestions = Array.from(merged);
+      }
+
       const result = await generateQuizFromFormula(
         topic,
         numques,
         selectedDiff,
         selectedLanguage,
+        excludeQuestions,
       );
       setCurrentQuestionIndex(0);
       setSelectedAnswers({});
@@ -847,6 +907,34 @@ export default function App() {
       isFirst: totalScore === quiz.length,
     };
     setQuizHistory(prev => [...prev, entry]);
+
+    // Save seen questions to local cache (always works, even without auth)
+    if (lastQuizCategory !== 'custom') {
+      const strippedQuestions = quiz.map(q =>
+        q.question.replace(/^\d+\.\s*/, ''),
+      );
+      const prevSeen = localSeenQuestionsRef.current[lastQuizCategory] ?? [];
+      localSeenQuestionsRef.current[lastQuizCategory] = [
+        ...prevSeen,
+        ...strippedQuestions,
+      ];
+
+      // Also persist to Firebase if logged in
+      if (userProfile) {
+        const now = new Date().toISOString();
+        const seenEntries: SeenQuestion[] = strippedQuestions.map(q => ({
+          question: q,
+          createdAt: now,
+          difficulty: selectedDiff,
+        }));
+        saveSeenQuestionsAfterQuiz(
+          userProfile.uid,
+          lastQuizCategory,
+          seenEntries,
+        ).catch(() => {});
+      }
+    }
+
     if (userProfile) {
       saveQuizHistoryEntry(userProfile.uid, entry).catch(() => {
         setSyncError('Your score was saved locally, but cloud sync failed.');
