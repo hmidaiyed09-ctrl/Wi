@@ -529,6 +529,64 @@ if (activeTab === 'dashboard') {
 
 ---
 
+## 📋 Sprint 8 — Anti-répétition Persistante & Room Setup UX
+
+**Date :** 22 Avril 2026  
+**Objectif :** Garantir la non-répétition des questions entre redémarrages et simplifier la configuration du quiz en création de room.
+
+---
+
+### US-20 : Persistance locale des questions déjà vues (anti-repeat)
+
+**En tant qu'** utilisateur,  
+**je veux** que les questions déjà générées soient retenues localement même après relance de l'application,  
+**afin d'** éviter de revoir les mêmes questions trop souvent.
+
+**Critères d'acceptation :**
+
+- ✅ Les questions vues sont sauvegardées localement sur l'appareil
+- ✅ La déduplication est appliquée au prochain lancement (pas seulement en mémoire de session)
+- ✅ La logique couvre les catégories prédéfinies et les sujets custom (clé dédiée par sujet normalisé)
+- ✅ Le chargement du stockage local est sécurisé pour éviter les crashs au démarrage
+
+---
+
+### US-21 : Sélecteur de topic en room (liste + custom) et suppression du bouton settings
+
+**En tant qu'** hôte,  
+**je veux** choisir le topic de la room depuis une liste (Entertainment, Sports, General Knowledge, Science, History, Custom),  
+**afin de** configurer rapidement la partie sans saisir manuellement un topic à chaque fois.
+
+**Critères d'acceptation :**
+
+- ✅ Le champ texte "General knowledge" est remplacé par un sélecteur de topic
+- ✅ Un appui ouvre une liste de topics disponibles
+- ✅ L'option **Custom** affiche un champ de saisie libre
+- ✅ Le bouton/settings ⚙️ en bas de l'écran de création de room est supprimé
+
+---
+
+### ✅ Tasks Sprint 8
+
+- ✅ **TASK-8.1** : Ajouter une persistance locale des "seen questions" (avec limites de rétention)
+- ✅ **TASK-8.2** : Appliquer la déduplication au redémarrage pour catégories + sujets custom
+- ✅ **TASK-8.3** : Fiabiliser l'initialisation du stockage local pour éviter les écrans blancs
+- ✅ **TASK-8.4** : Remplacer le topic en room par un sélecteur de catégories
+- ✅ **TASK-8.5** : Ajouter la saisie libre uniquement pour l'option Custom
+- ✅ **TASK-8.6** : Retirer le bouton/settings du footer de création de room
+
+### Fichiers concernés (Sprint 8)
+
+| Fichier                            | Modification                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `services/firebaseAuth.ts`         | Persistance locale des seen questions + fallback storage sécurisé            |
+| `App.tsx`                          | Déduplication persistante (catégories + custom topic key)                    |
+| `components/CreateRoomScreen.tsx`  | Topic selector (liste + custom) + suppression du bouton settings             |
+| `__tests__/App.test.tsx`           | Mocks alignés avec les nouvelles fonctions de persistance locale             |
+| `package.json` / `package-lock.json` | Dépendance `@react-native-async-storage/async-storage` ajoutée              |
+
+---
+
 ## 🏗️ Architecture Technique
 
 ### Fichiers Modifiés

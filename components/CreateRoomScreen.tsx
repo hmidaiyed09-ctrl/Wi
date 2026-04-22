@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,84 @@ import {
   Modal,
 } from 'react-native';
 import { QRCodeSVG } from 'qrcode.react';
-import type { RoomState } from '../services/firebaseRooms';
+import type {
+  RoomJoinResult,
+  RoomState,
+} from '../services/firebaseRooms';
+
+type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
+type TopicCategory =
+  | 'entertainment'
+  | 'sports'
+  | 'general_knowledge'
+  | 'science'
+  | 'history'
+  | 'custom';
+
+export type FriendLobbyConfig = {
+  topic: string;
+  questionCount: number;
+  difficulty: Difficulty;
+};
 
 type Props = {
   onBack: () => void;
+  onOpenGame: (roomCode: string, localPlayerId: string) => void;
+  onStartGame: (input: {
+    room: RoomState;
+    localPlayerId: string;
+    config: FriendLobbyConfig;
+  }) => Promise<void>;
   profileName: string;
+  profileUid: string;
 };
 
-const MAX_PLAYERS = 8;
+const MAX_PLAYERS = 5;
+const QUESTION_OPTIONS = [5, 10, 15];
+const DIFFICULTIES: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
+const TOPIC_OPTIONS: Array<{
+  key: TopicCategory;
+  label: string;
+  topic: string;
+}> = [
+  {
+    key: 'entertainment',
+    label: 'Entertainment',
+    topic: 'Entertainment, movies, music, TV shows, celebrities, pop culture',
+  },
+  {
+    key: 'sports',
+    label: 'Sports',
+    topic: 'Sports, football, basketball, Olympics, athletes, competitions',
+  },
+  {
+    key: 'general_knowledge',
+    label: 'General knowledge',
+    topic: 'General knowledge, trivia, world facts, geography, culture',
+  },
+  {
+    key: 'science',
+    label: 'Science',
+    topic: 'Science, physics, chemistry, biology, space, technology',
+  },
+  {
+    key: 'history',
+    label: 'History',
+    topic: 'History, world wars, ancient civilizations, historical events, leaders',
+  },
+  {
+    key: 'custom',
+    label: 'Custom',
+    topic: '',
+  },
+];
+
 type RoomServiceModule = {
-  createRoom: (hostName: string, roomName?: string) => Promise<RoomState>;
+  createRoom: (
+    hostName: string,
+    roomName?: string,
+    authUid?: string,
+  ) => Promise<RoomJoinResult>;
   subscribeToRoom: (
     roomCodeInput: string,
     onChange: (room: RoomState) => void,
@@ -39,40 +107,77 @@ const resolveRoomService = async (): Promise<RoomServiceModule> => {
 };
 
 const getCreateRoomErrorMessage = (error: unknown): string => {
-  const typedError = error as { code?: string; message?: string };
-  const errorCode = typedError?.code ? String(typedError.code) : 'unknown';
-  const errorMessage = typedError?.message ? String(typedError.message) : '';
-
   if (!(error instanceof Error)) {
     return 'Unable to create room right now. Please try again.';
   }
 
-  const message = error.message.toLowerCase();
-  if (message.includes('permission') || message.includes('denied')) {
-    return `Firebase denied room creation (${errorCode}). Please update Firestore rules.`;
-  }
-  if (message.includes('network') || message.includes('offline') || message.includes('unavailable')) {
-    return `Network issue while creating room (${errorCode}). ${errorMessage || 'Please check your connection.'}`;
-  }
-  if (message.includes('chunk') || message.includes('loading')) {
-    return 'Room module failed to load. Refresh and try again.';
-  }
-  if (message.includes('room_service_unavailable')) {
-    return 'Room service failed to initialize. Please refresh the app.';
-  }
+  const normalizedMessage = error.message.toLowerCase();
 
-  return `Unable to create room right now (${errorCode}): ${error.message}`;
+  switch (error.message) {
+    case 'ROOM_CODE_GENERATION_FAILED':
+      return 'Unable to reserve a room code right now. Please try again.';
+    case 'ROOM_SERVICE_UNAVAILABLE':
+      return 'Room service failed to initialize. Please refresh the app.';
+    default:
+      if (
+        normalizedMessage.includes('permission_denied') ||
+        normalizedMessage.includes('permission denied')
+      ) {
+        return 'Realtime Database denied room creation. Please update your RTDB rules in Firebase Console.';
+      }
+      return `Unable to create room right now: ${error.message}`;
+  }
 };
 
-export default function CreateRoomScreen({ onBack, profileName }: Props) {
+const getStartGameErrorMessage = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return 'Unable to start the game right now.';
+  }
+
+  const normalizedMessage = error.message.toLowerCase();
+
+  switch (error.message) {
+    case 'MISSING_QUESTIONS':
+      return 'The quiz generator returned no questions. Please try again.';
+    case 'NOT_ENOUGH_PLAYERS':
+      return 'At least 2 players are needed before starting.';
+    case 'NOT_HOST':
+      return 'Only the host can start the game.';
+    case 'ROOM_ALREADY_STARTED':
+      return 'This room already started.';
+    default:
+      if (
+        normalizedMessage.includes('permission_denied') ||
+        normalizedMessage.includes('permission denied')
+      ) {
+        return 'Realtime Database denied the game start. Please update your RTDB rules in Firebase Console.';
+      }
+      return `Unable to start the game right now: ${error.message}`;
+  }
+};
+
+export default function CreateRoomScreen({
+  onBack,
+  onOpenGame,
+  onStartGame,
+  profileName,
+  profileUid,
+}: Props) {
   const [room, setRoom] = useState<RoomState | null>(null);
+  const [localPlayerId, setLocalPlayerId] = useState('');
   const [roomNameInput, setRoomNameInput] = useState('myfriend');
+  const [selectedTopicCategory, setSelectedTopicCategory] =
+    useState<TopicCategory>('general_knowledge');
+  const [customTopicInput, setCustomTopicInput] = useState('');
+  const [questionCount, setQuestionCount] = useState(10);
+  const [difficulty, setDifficulty] = useState<Difficulty>('EASY');
   const [isCreating, setIsCreating] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState('');
   const [showQrModal, setShowQrModal] = useState(false);
-  const [showSettingsSheet, setShowSettingsSheet] = useState(false);
-  const [autoStartEnabled, setAutoStartEnabled] = useState(false);
+  const [showTopicSheet, setShowTopicSheet] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const openedGameRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -81,6 +186,17 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!room || !localPlayerId || openedGameRef.current) {
+      return;
+    }
+
+    if (room.status === 'in_game' || room.status === 'completed') {
+      openedGameRef.current = true;
+      onOpenGame(room.code, localPlayerId);
+    }
+  }, [localPlayerId, onOpenGame, room]);
 
   const handleCreateRoom = async () => {
     const trimmedName = roomNameInput.trim();
@@ -94,8 +210,9 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
 
     try {
       const roomService = await resolveRoomService();
-      const createdRoom = await roomService.createRoom(profileName, trimmedName);
+      const createdRoom = await roomService.createRoom(profileName, trimmedName, profileUid);
       setRoom(createdRoom);
+      setLocalPlayerId(createdRoom.localPlayerId);
 
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
@@ -103,10 +220,11 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
 
       unsubscribeRef.current = roomService.subscribeToRoom(
         createdRoom.code,
-        (updatedRoom) => {
+        updatedRoom => {
           setRoom(updatedRoom);
+          setError('');
         },
-        (snapshotError) => {
+        snapshotError => {
           setError(`Live updates unavailable: ${snapshotError.message}`);
         },
       );
@@ -117,10 +235,66 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
     }
   };
 
+  const handleStart = async () => {
+    if (!room || !localPlayerId) {
+      return;
+    }
+
+    const selectedTopicOption =
+      TOPIC_OPTIONS.find(option => option.key === selectedTopicCategory)
+      ?? TOPIC_OPTIONS[0];
+    const topic =
+      selectedTopicCategory === 'custom'
+        ? customTopicInput.trim()
+        : selectedTopicOption.topic;
+    if (!topic) {
+      setError('Please enter a quiz topic before starting.');
+      return;
+    }
+
+    setIsStarting(true);
+    setError('');
+
+    try {
+      await onStartGame({
+        room,
+        localPlayerId,
+        config: {
+          topic,
+          questionCount,
+          difficulty,
+        },
+      });
+    } catch (startError) {
+      setError(getStartGameErrorMessage(startError));
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
   const players = room?.players ?? [];
   const playerCount = players.length;
   const roomName = room?.roomName ?? (roomNameInput.trim() || 'myfriend');
   const roomCode = room?.code ?? '------';
+  const selectedTopicOption = useMemo(
+    () =>
+      TOPIC_OPTIONS.find(option => option.key === selectedTopicCategory)
+      ?? TOPIC_OPTIONS[0],
+    [selectedTopicCategory],
+  );
+  const canStart =
+    !!room
+    && playerCount >= 2
+    && !!(
+      selectedTopicCategory === 'custom'
+        ? customTopicInput.trim()
+        : selectedTopicOption.topic.trim()
+    )
+    && !isStarting;
+  const localPlayer = useMemo(
+    () => players.find(player => player.id === localPlayerId) ?? null,
+    [localPlayerId, players],
+  );
 
   return (
     <View style={styles.container}>
@@ -134,7 +308,7 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
 
         <Text style={styles.title}>Create Room</Text>
         <Text style={styles.subtitle}>
-          {room ? 'Share your lobby code and wait for players' : 'Set lobby name and create your room'}
+          {room ? 'Invite friends, choose the quiz setup, then launch the match' : 'Set a lobby name and create your friend room'}
         </Text>
 
         {!room ? (
@@ -142,7 +316,7 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
             <Text style={styles.sectionLabel}>ROOM NAME</Text>
             <TextInput
               value={roomNameInput}
-              onChangeText={(text) => {
+              onChangeText={text => {
                 setRoomNameInput(text);
                 if (error) {
                   setError('');
@@ -158,7 +332,7 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
               onPress={handleCreateRoom}
               disabled={isCreating}
               style={({ pressed }) => [
-                styles.createRoomButton,
+                styles.primaryButton,
                 { opacity: pressed ? 0.9 : 1 },
                 isCreating && styles.buttonDisabled,
               ]}
@@ -166,7 +340,7 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
               {isCreating ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.createRoomButtonText}>Create Room</Text>
+                <Text style={styles.primaryButtonText}>Create Room</Text>
               )}
             </Pressable>
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -181,7 +355,7 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
                   <Text style={styles.qrIconText}>QR</Text>
                 </Pressable>
               </View>
-              <Text style={styles.inviteHint}>Share this code or open QR to invite friends</Text>
+              <Text style={styles.inviteHint}>Max 5 players. Everyone will see the same timer and reveal phase.</Text>
             </View>
 
             <View style={styles.playerLoungeCard}>
@@ -190,15 +364,17 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
                 {Array.from({ length: MAX_PLAYERS }).map((_, index) => {
                   const player = players[index];
                   if (player) {
+                    const isLocal = player.id === localPlayerId;
                     return (
                       <View key={player.id} style={styles.playerSlot}>
-                        <View style={styles.playerAvatarFilled}>
+                        <View style={[styles.playerAvatarFilled, { backgroundColor: player.color }]}>
                           <Text style={styles.playerAvatarText}>{player.name.slice(0, 1).toUpperCase()}</Text>
                           {player.isHost ? <Text style={styles.hostCrown}>👑</Text> : null}
                         </View>
                         <Text style={styles.playerName} numberOfLines={1}>
                           {player.name}
                         </Text>
+                        <Text style={styles.playerMeta}>{isLocal ? 'You' : player.color}</Text>
                       </View>
                     );
                   }
@@ -215,6 +391,103 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
               </View>
             </View>
 
+            <View style={styles.configCard}>
+              <View style={styles.configHeaderRow}>
+                <Text style={styles.configTitle}>Quiz Setup</Text>
+                <Text style={styles.configHint}>
+                  {localPlayer?.isHost ? 'Host controls the quiz' : 'Waiting for host setup'}
+                </Text>
+              </View>
+
+              <Text style={styles.sectionLabel}>TOPIC</Text>
+              <Pressable
+                onPress={() => {
+                  if (!localPlayer?.isHost) {
+                    return;
+                  }
+                  setShowTopicSheet(true);
+                }}
+                style={[
+                  styles.topicSelector,
+                  !localPlayer?.isHost && styles.topicSelectorDisabled,
+                ]}
+              >
+                <Text style={styles.topicSelectorText}>
+                  {selectedTopicOption.label}
+                </Text>
+                <Text style={styles.topicSelectorChevron}>▼</Text>
+              </Pressable>
+
+              {selectedTopicCategory === 'custom' ? (
+                <TextInput
+                  value={customTopicInput}
+                  onChangeText={text => {
+                    setCustomTopicInput(text);
+                    if (error) {
+                      setError('');
+                    }
+                  }}
+                  placeholder="Type your custom topic"
+                  placeholderTextColor="#A1A1A1"
+                  editable={!!localPlayer?.isHost}
+                  style={[
+                    styles.customTopicInput,
+                    !localPlayer?.isHost && styles.topicSelectorDisabled,
+                  ]}
+                />
+              ) : null}
+
+              <Text style={styles.sectionLabel}>QUESTION COUNT</Text>
+              <View style={styles.choiceRow}>
+                {QUESTION_OPTIONS.map(option => (
+                  <Pressable
+                    key={option}
+                    disabled={!localPlayer?.isHost}
+                    onPress={() => setQuestionCount(option)}
+                    style={[
+                      styles.choiceChip,
+                      questionCount === option && styles.choiceChipActive,
+                      !localPlayer?.isHost && styles.choiceChipDisabled,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceChipText,
+                        questionCount === option && styles.choiceChipTextActive,
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.sectionLabel}>DIFFICULTY</Text>
+              <View style={styles.choiceRow}>
+                {DIFFICULTIES.map(option => (
+                  <Pressable
+                    key={option}
+                    disabled={!localPlayer?.isHost}
+                    onPress={() => setDifficulty(option)}
+                    style={[
+                      styles.choiceChip,
+                      difficulty === option && styles.choiceChipActive,
+                      !localPlayer?.isHost && styles.choiceChipDisabled,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceChipText,
+                        difficulty === option && styles.choiceChipTextActive,
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </>
         )}
@@ -222,17 +495,19 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
 
       {room ? (
         <View style={styles.footerBar}>
-          <Pressable style={styles.settingsButton} onPress={() => setShowSettingsSheet(true)}>
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </Pressable>
           <Pressable
             style={[
               styles.startButton,
-              playerCount < 2 && styles.buttonDisabled,
+              (!canStart || !localPlayer?.isHost) && styles.buttonDisabled,
             ]}
-            disabled={playerCount < 2}
+            disabled={!canStart || !localPlayer?.isHost}
+            onPress={handleStart}
           >
-            <Text style={styles.startButtonText}>START GAME</Text>
+            {isStarting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.startButtonText}>START FRIEND GAME</Text>
+            )}
           </Pressable>
         </View>
       ) : null}
@@ -249,22 +524,41 @@ export default function CreateRoomScreen({ onBack, profileName }: Props) {
         </Pressable>
       </Modal>
 
-      <Modal visible={showSettingsSheet} transparent animationType="slide">
+      <Modal visible={showTopicSheet} transparent animationType="slide">
         <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetBackdrop} onPress={() => setShowSettingsSheet(false)} />
+          <Pressable style={styles.sheetBackdrop} onPress={() => setShowTopicSheet(false)} />
           <View style={styles.sheetCard}>
-            <Text style={styles.sheetTitle}>Lobby Settings</Text>
-            <Pressable
-              style={styles.sheetRow}
-              onPress={() => setAutoStartEnabled((prev) => !prev)}
-            >
-              <Text style={styles.sheetRowLabel}>Auto-start when 2+ players</Text>
-              <Text style={styles.sheetRowValue}>{autoStartEnabled ? 'ON' : 'OFF'}</Text>
-            </Pressable>
-            <View style={styles.sheetRow}>
-              <Text style={styles.sheetRowLabel}>Kick/Ban controls</Text>
-              <Text style={styles.sheetRowValueSoon}>Soon</Text>
-            </View>
+            <Text style={styles.sheetTitle}>Select Topic</Text>
+            {TOPIC_OPTIONS.map(option => {
+              const isSelected = selectedTopicCategory === option.key;
+
+              return (
+                <Pressable
+                  key={option.key}
+                  style={[
+                    styles.sheetOptionRow,
+                    isSelected && styles.sheetOptionRowActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedTopicCategory(option.key);
+                    if (error) {
+                      setError('');
+                    }
+                    setShowTopicSheet(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.sheetOptionText,
+                      isSelected && styles.sheetOptionTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {isSelected ? <Text style={styles.sheetOptionCheck}>✓</Text> : null}
+                </Pressable>
+              );
+            })}
           </View>
         </View>
       </Modal>
@@ -320,6 +614,7 @@ const styles = StyleSheet.create({
     color: '#999999',
     letterSpacing: 1.4,
     marginBottom: 10,
+    marginTop: 4,
   },
   roomNameInput: {
     backgroundColor: '#FFFFFF',
@@ -333,13 +628,52 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontWeight: '700',
   },
-  createRoomButton: {
+  topicSelector: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFD7AE',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  topicSelectorText: {
+    color: '#1A1A1A',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  topicSelectorChevron: {
+    color: '#A85A00',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  customTopicInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFD7AE',
+    color: '#1A1A1A',
+    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+    fontWeight: '700',
+  },
+  topicSelectorDisabled: {
+    backgroundColor: '#F7F7F7',
+    borderColor: '#E4E4E4',
+    opacity: 0.8,
+  },
+  primaryButton: {
     backgroundColor: '#FF8C00',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  createRoomButtonText: {
+  primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
@@ -395,6 +729,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#ECECEC',
     padding: 18,
+    marginBottom: 16,
   },
   playerHeader: {
     fontSize: 17,
@@ -409,14 +744,13 @@ const styles = StyleSheet.create({
     rowGap: 12,
   },
   playerSlot: {
-    width: '23%',
+    width: '30%',
     alignItems: 'center',
   },
   playerAvatarFilled: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FF8C00',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -436,9 +770,15 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 11,
     color: '#555555',
-    fontWeight: '600',
-    maxWidth: 60,
+    fontWeight: '700',
+    maxWidth: 74,
     textAlign: 'center',
+  },
+  playerMeta: {
+    marginTop: 2,
+    fontSize: 10,
+    color: '#8A8A8A',
+    fontWeight: '600',
   },
   playerAvatarEmpty: {
     width: 56,
@@ -462,6 +802,60 @@ const styles = StyleSheet.create({
     color: '#B0B0B0',
     fontWeight: '600',
   },
+  configCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#ECECEC',
+    padding: 18,
+  },
+  configHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  configTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1A1A1A',
+  },
+  configHint: {
+    fontSize: 12,
+    color: '#8A8A8A',
+    fontWeight: '700',
+  },
+  choiceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
+  },
+  choiceChip: {
+    minWidth: 72,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#FFF7EC',
+    borderWidth: 1,
+    borderColor: '#FFD9B1',
+    alignItems: 'center',
+  },
+  choiceChipActive: {
+    backgroundColor: '#FF8C00',
+    borderColor: '#FF8C00',
+  },
+  choiceChipDisabled: {
+    opacity: 0.5,
+  },
+  choiceChipText: {
+    color: '#A85A00',
+    fontWeight: '800',
+  },
+  choiceChipTextActive: {
+    color: '#FFFFFF',
+  },
   footerBar: {
     position: 'absolute',
     left: 16,
@@ -476,19 +870,6 @@ const styles = StyleSheet.create({
     borderColor: '#ECECEC',
     padding: 10,
   },
-  settingsButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FFF6EA',
-    borderWidth: 1,
-    borderColor: '#FFDDB6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  settingsIcon: {
-    fontSize: 20,
-  },
   startButton: {
     flex: 1,
     backgroundColor: '#FF8C00',
@@ -498,9 +879,9 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   buttonDisabled: {
     backgroundColor: '#D8D8D8',
@@ -563,7 +944,7 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginBottom: 12,
   },
-  sheetRow: {
+  sheetOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -571,20 +952,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
   },
-  sheetRowLabel: {
+  sheetOptionRowActive: {
+    backgroundColor: '#FFF7EC',
+  },
+  sheetOptionText: {
     fontSize: 14,
     color: '#3D3D3D',
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  sheetRowValue: {
+  sheetOptionTextActive: {
+    color: '#A85A00',
+  },
+  sheetOptionCheck: {
     fontSize: 13,
     color: '#FF8C00',
-    fontWeight: '800',
-  },
-  sheetRowValueSoon: {
-    fontSize: 13,
-    color: '#9B9B9B',
-    fontWeight: '700',
+    fontWeight: '900',
   },
   errorText: {
     marginTop: 10,
