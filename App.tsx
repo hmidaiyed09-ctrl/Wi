@@ -15,16 +15,21 @@ import SignUpScreen from './components/SignUpScreen';
 import HomeScreen from './components/HomeScreen';
 import DashboardScreen from './components/DashboardScreen';
 import SettingsScreen from './components/SettingsScreen';
-import CreateRoomScreen from './components/CreateRoomScreen';
+import CreateRoomScreen, {
+  type FriendLobbyConfig,
+} from './components/CreateRoomScreen';
+import FriendQuizScreen from './components/FriendQuizScreen';
 import JoinRoomScreen from './components/JoinRoomScreen';
 import BuilderCategoryIcon from './components/BuilderCategoryIcons';
 import {
   getCurrentUserProfile,
   initializeAuth,
+  loadLocalSeenQuestions,
   loadQuizHistory,
   loadSeenQuestions,
   onAuthStateChanged,
   savePreferredLanguage,
+  saveLocalSeenQuestionsAfterQuiz,
   saveQuizHistoryEntry,
   saveSeenQuestionsAfterQuiz,
   signInWithEmail,
@@ -34,6 +39,10 @@ import {
   type SeenQuestion,
   type UserProfile,
 } from './services/firebaseAuth';
+import {
+  startRoomGame,
+  type RoomState,
+} from './services/firebaseRooms';
 
 const APP_CONFIG = require('./config.json') as { apiKey?: string };
 const API_BASE_URL = 'https://gen.pollinations.ai/v1';
@@ -61,7 +70,8 @@ type Screen =
   | 'quiz'
   | 'result'
   | 'createRoom'
-  | 'joinRoom';
+  | 'joinRoom'
+  | 'friendQuiz';
 
 type QuizQuestion = {
   id: string;
@@ -95,6 +105,7 @@ const CATEGORY_OPTIONS: { key: QuizCategory; label: string }[] = [
   { key: 'history', label: 'History' },
   { key: 'custom', label: 'Custom' },
 ];
+const LOCAL_SEEN_QUESTIONS_LIMIT = 50;
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
@@ -120,10 +131,15 @@ export default function App() {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [quizHistory, setQuizHistory] = useState<QuizHistoryEntry[]>([]);
   const [lastQuizCategory, setLastQuizCategory] = useState('');
+  const [lastSeenCacheKey, setLastSeenCacheKey] = useState('');
+  const [lastSeenCloudCategory, setLastSeenCloudCategory] = useState('');
   const localSeenQuestionsRef = useRef<Record<string, string[]>>({});
+  const localSeenLoadedRef = useRef<Record<string, boolean>>({});
   const [authLoading, setAuthLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [syncError, setSyncError] = useState('');
+  const [friendRoomCode, setFriendRoomCode] = useState('');
+  const [friendLocalPlayerId, setFriendLocalPlayerId] = useState('');
   const profileName = userProfile?.username ?? 'User';
   const profileEmail = userProfile?.email ?? '';
   const authProviderLabel =
@@ -295,6 +311,17 @@ export default function App() {
     setIsReviewMode(false);
   };
 
+  const resetFriendSession = () => {
+    setFriendRoomCode('');
+    setFriendLocalPlayerId('');
+  };
+
+  const openFriendGame = (roomCode: string, localPlayerId: string) => {
+    setFriendRoomCode(roomCode);
+    setFriendLocalPlayerId(localPlayerId);
+    setScreen('friendQuiz');
+  };
+
   const getCategoryTopic = (cat: QuizCategory): string => {
     const map: Record<QuizCategory, string> = {
       entertainment:
@@ -308,6 +335,62 @@ export default function App() {
       custom: '',
     };
     return map[cat];
+  };
+
+  const mergeRecentSeenQuestions = (
+    existing: string[],
+    incoming: string[],
+  ): string[] => {
+    const sanitizedIncoming = incoming
+      .map(question => question.trim())
+      .filter(question => question.length > 0);
+    return [...existing, ...sanitizedIncoming].slice(-LOCAL_SEEN_QUESTIONS_LIMIT);
+  };
+
+  const normalizeTopicForSeenCache = (topic: string): string =>
+    topic
+      .normalize('NFKC')
+      .toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()
+      .slice(0, 80);
+
+  const getSeenCacheKey = (
+    category: QuizCategory,
+    topic: string,
+  ): string => {
+    if (category !== 'custom') {
+      return category;
+    }
+
+    const normalizedTopic = normalizeTopicForSeenCache(topic);
+    return normalizedTopic ? `custom:${normalizedTopic}` : 'custom';
+  };
+
+  const ensureLocalSeenQuestionsLoaded = async (
+    cacheKey: string,
+  ): Promise<string[]> => {
+    const normalizedKey = cacheKey.trim();
+    if (!normalizedKey) {
+      return [];
+    }
+
+    if (localSeenLoadedRef.current[normalizedKey]) {
+      return localSeenQuestionsRef.current[normalizedKey] ?? [];
+    }
+
+    try {
+      const cachedQuestions = await loadLocalSeenQuestions(normalizedKey);
+      localSeenQuestionsRef.current[normalizedKey] = cachedQuestions;
+    } catch {
+      setSyncError(
+        'Local question cache is unavailable, so duplicate questions may appear.',
+      );
+      localSeenQuestionsRef.current[normalizedKey] = [];
+    }
+
+    localSeenLoadedRef.current[normalizedKey] = true;
+    return localSeenQuestionsRef.current[normalizedKey] ?? [];
   };
 
   const generateQuizFromFormula = async (
@@ -359,8 +442,8 @@ export default function App() {
     };
 
     const wait = (ms: number) =>
-      new Promise(resolve => {
-        setTimeout(resolve, ms);
+      new Promise<void>(resolve => {
+        setTimeout(() => resolve(), ms);
       });
 
     const getObject = (value: unknown): Record<string, unknown> | null => {
@@ -779,6 +862,7 @@ export default function App() {
       selectedCategory === 'custom'
         ? formula.trim()
         : getCategoryTopic(selectedCategory);
+    const seenCacheKey = getSeenCacheKey(selectedCategory, topic);
     if (!topic) {
       setBuilderError('Please enter a topic first.');
       return;
@@ -787,9 +871,8 @@ export default function App() {
     setScreen('generating');
 
     try {
-      let excludeQuestions: string[] = [];
+      let excludeQuestions = await ensureLocalSeenQuestionsLoaded(seenCacheKey);
       if (selectedCategory !== 'custom') {
-        const localSeen = localSeenQuestionsRef.current[selectedCategory] ?? [];
         let firebaseSeen: string[] = [];
         if (userProfile) {
           try {
@@ -799,7 +882,7 @@ export default function App() {
             // Silently continue — dedup is best-effort
           }
         }
-        const merged = new Set([...localSeen, ...firebaseSeen]);
+        const merged = new Set([...excludeQuestions, ...firebaseSeen]);
         excludeQuestions = Array.from(merged);
       }
 
@@ -822,6 +905,10 @@ export default function App() {
             : 'custom'
           : selectedCategory;
       setLastQuizCategory(cat);
+      setLastSeenCacheKey(seenCacheKey);
+      setLastSeenCloudCategory(
+        selectedCategory === 'custom' ? '' : selectedCategory,
+      );
       setScreen('quiz');
     } catch (error) {
       setScreen('builder');
@@ -847,10 +934,49 @@ export default function App() {
     }
   };
 
+  const handleStartFriendGame = async ({
+    room,
+    localPlayerId,
+    config,
+  }: {
+    room: RoomState;
+    localPlayerId: string;
+    config: FriendLobbyConfig;
+  }) => {
+    const topic = config.topic.trim();
+    if (!topic) {
+      throw new Error('MISSING_TOPIC');
+    }
+
+    const multiplayerTimerSeconds: Record<Difficulty, number> = {
+      EASY: 30,
+      MEDIUM: 25,
+      HARD: 20,
+    };
+
+    const result = await generateQuizFromFormula(
+      topic,
+      config.questionCount,
+      config.difficulty,
+      selectedLanguage,
+      [],
+    );
+
+    await startRoomGame(room.code, localPlayerId, {
+      questions: result.questions.map(question => ({
+        ...question,
+        timeLimitSeconds: multiplayerTimerSeconds[config.difficulty],
+      })),
+    });
+
+    openFriendGame(room.code, localPlayerId);
+  };
+
   const cancelQuiz = () => {
     setScreen('home');
     resetBuilder();
     setQuiz([]);
+    resetFriendSession();
   };
 
   const currentQuestion = quiz[currentQuestionIndex];
@@ -908,31 +1034,44 @@ export default function App() {
     };
     setQuizHistory(prev => [...prev, entry]);
 
-    // Save seen questions to local cache (always works, even without auth)
-    if (lastQuizCategory !== 'custom') {
-      const strippedQuestions = quiz.map(q =>
-        q.question.replace(/^\d+\.\s*/, ''),
-      );
-      const prevSeen = localSeenQuestionsRef.current[lastQuizCategory] ?? [];
-      localSeenQuestionsRef.current[lastQuizCategory] = [
-        ...prevSeen,
-        ...strippedQuestions,
-      ];
+    const strippedQuestions = quiz.map(q =>
+      q.question.replace(/^\d+\.\s*/, ''),
+    );
 
-      // Also persist to Firebase if logged in
-      if (userProfile) {
-        const now = new Date().toISOString();
-        const seenEntries: SeenQuestion[] = strippedQuestions.map(q => ({
-          question: q,
-          createdAt: now,
-          difficulty: selectedDiff,
-        }));
-        saveSeenQuestionsAfterQuiz(
-          userProfile.uid,
-          lastQuizCategory,
-          seenEntries,
-        ).catch(() => {});
-      }
+    // Save seen questions to local cache (always works, even without auth)
+    if (lastSeenCacheKey) {
+      const prevSeen = localSeenQuestionsRef.current[lastSeenCacheKey] ?? [];
+      localSeenQuestionsRef.current[lastSeenCacheKey] = mergeRecentSeenQuestions(
+        prevSeen,
+        strippedQuestions,
+      );
+      localSeenLoadedRef.current[lastSeenCacheKey] = true;
+
+      saveLocalSeenQuestionsAfterQuiz(lastSeenCacheKey, strippedQuestions)
+        .then(updatedQuestions => {
+          localSeenQuestionsRef.current[lastSeenCacheKey] = updatedQuestions;
+          localSeenLoadedRef.current[lastSeenCacheKey] = true;
+        })
+        .catch(() => {
+          setSyncError(
+            'Quiz completed, but local question cache update failed.',
+          );
+        });
+    }
+
+    // Also persist to Firebase if logged in for built-in categories
+    if (userProfile && lastSeenCloudCategory) {
+      const now = new Date().toISOString();
+      const seenEntries: SeenQuestion[] = strippedQuestions.map(q => ({
+        question: q,
+        createdAt: now,
+        difficulty: selectedDiff,
+      }));
+      saveSeenQuestionsAfterQuiz(
+        userProfile.uid,
+        lastSeenCloudCategory,
+        seenEntries,
+      ).catch(() => {});
     }
 
     if (userProfile) {
@@ -966,6 +1105,7 @@ export default function App() {
 
   const handleSignOut = () => {
     resetBuilder();
+    resetFriendSession();
     setQuiz([]);
     signOutUser().catch(() => {
       setSyncError('Sign out failed. Please try again.');
@@ -1014,7 +1154,10 @@ export default function App() {
     return (
       <CreateRoomScreen
         onBack={() => setScreen('home')}
+        onOpenGame={openFriendGame}
+        onStartGame={handleStartFriendGame}
         profileName={profileName}
+        profileUid={userProfile?.uid ?? ''}
       />
     );
   }
@@ -1023,7 +1166,22 @@ export default function App() {
     return (
       <JoinRoomScreen
         onBack={() => setScreen('home')}
+        onOpenGame={openFriendGame}
         profileName={profileName}
+        profileUid={userProfile?.uid ?? ''}
+      />
+    );
+  }
+
+  if (screen === 'friendQuiz') {
+    return (
+      <FriendQuizScreen
+        roomCode={friendRoomCode}
+        localPlayerId={friendLocalPlayerId}
+        onLeave={() => {
+          resetFriendSession();
+          setScreen('home');
+        }}
       />
     );
   }
@@ -1172,19 +1330,6 @@ export default function App() {
         </View>
 
         <View style={styles.quizActionsRow}>
-          <Pressable
-            onPress={() =>
-              setCurrentQuestionIndex(prev => Math.max(prev - 1, 0))
-            }
-            disabled={currentQuestionIndex === 0}
-            style={[
-              styles.quizNavButton,
-              currentQuestionIndex === 0 && styles.quizNavButtonDisabled,
-            ]}
-          >
-            <Text style={styles.quizNavButtonText}>Previous</Text>
-          </Pressable>
-
           <Pressable
             onPress={() => {
               if (currentQuestionIndex < quiz.length - 1) {

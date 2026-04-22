@@ -336,9 +336,140 @@ type SeenCategoryDocument = {
 };
 
 const QUESTIONS_LIMIT = 50;
+const LOCAL_SEEN_QUESTIONS_STORAGE_KEY = 'quiz_local_seen_questions_v1';
+
+type LocalSeenQuestionsStore = Record<string, string[]>;
+type LocalSeenStorage = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+};
 
 const seenQuestionsRef = (uid: string, category: string) =>
   usersCollection.doc(uid).collection('seenQuestions').doc(category);
+
+const sanitizeQuestionList = (questions: unknown): string[] => {
+  if (!Array.isArray(questions)) {
+    return [];
+  }
+
+  return questions
+    .map(question => (typeof question === 'string' ? question.trim() : ''))
+    .filter(question => question.length > 0);
+};
+
+const parseLocalSeenQuestionsStore = (value: unknown): LocalSeenQuestionsStore => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.entries(value as Record<string, unknown>).reduce<LocalSeenQuestionsStore>(
+    (accumulator, [category, questions]) => {
+      const normalizedCategory = category.trim();
+      if (!normalizedCategory) {
+        return accumulator;
+      }
+
+      accumulator[normalizedCategory] = sanitizeQuestionList(questions).slice(-QUESTIONS_LIMIT);
+      return accumulator;
+    },
+    {},
+  );
+};
+
+const mergeSeenQuestionLists = (
+  existingQuestions: string[],
+  newQuestions: string[],
+): string[] => {
+  const sanitizedNewQuestions = sanitizeQuestionList(newQuestions);
+  const merged = [...existingQuestions, ...sanitizedNewQuestions];
+  return merged.slice(-QUESTIONS_LIMIT);
+};
+
+let nativeSeenStoragePromise: Promise<LocalSeenStorage> | null = null;
+
+const createWebSeenStorage = (): LocalSeenStorage => {
+  if (typeof window === 'undefined') {
+    throw new Error('WEB_STORAGE_UNAVAILABLE');
+  }
+
+  const webStorage = window.localStorage;
+  return {
+    getItem: async key => webStorage.getItem(key),
+    setItem: async (key, value) => {
+      webStorage.setItem(key, value);
+    },
+  };
+};
+
+const getNativeSeenStorage = async (): Promise<LocalSeenStorage> => {
+  if (!nativeSeenStoragePromise) {
+    nativeSeenStoragePromise = import('@react-native-async-storage/async-storage')
+      .then(module => {
+        const storage = module.default;
+        if (
+          !storage ||
+          typeof storage.getItem !== 'function' ||
+          typeof storage.setItem !== 'function'
+        ) {
+          throw new Error('NATIVE_STORAGE_UNAVAILABLE');
+        }
+
+        return {
+          getItem: async key => storage.getItem(key),
+          setItem: async (key, value) => {
+            await storage.setItem(key, value);
+          },
+        };
+      });
+  }
+
+  return nativeSeenStoragePromise;
+};
+
+const getSeenStorage = async (): Promise<LocalSeenStorage> => {
+  if (Platform.OS === 'web') {
+    return createWebSeenStorage();
+  }
+
+  return getNativeSeenStorage();
+};
+
+const readLocalSeenQuestionsStore = async (): Promise<LocalSeenQuestionsStore> => {
+  let rawValue: string | null = null;
+  try {
+    const storage = await getSeenStorage();
+    rawValue = await storage.getItem(LOCAL_SEEN_QUESTIONS_STORAGE_KEY);
+  } catch {
+    throw new Error('LOCAL_SEEN_CACHE_READ_FAILED');
+  }
+
+  if (!rawValue) {
+    return {};
+  }
+
+  let parsedValue: unknown;
+  try {
+    parsedValue = JSON.parse(rawValue) as unknown;
+  } catch {
+    throw new Error('LOCAL_SEEN_CACHE_CORRUPTED');
+  }
+
+  return parseLocalSeenQuestionsStore(parsedValue);
+};
+
+const writeLocalSeenQuestionsStore = async (
+  store: LocalSeenQuestionsStore,
+): Promise<void> => {
+  try {
+    const storage = await getSeenStorage();
+    await storage.setItem(
+      LOCAL_SEEN_QUESTIONS_STORAGE_KEY,
+      JSON.stringify(store),
+    );
+  } catch {
+    throw new Error('LOCAL_SEEN_CACHE_WRITE_FAILED');
+  }
+};
 
 export const loadSeenQuestions = async (
   uid: string,
@@ -376,4 +507,33 @@ export const saveSeenQuestionsAfterQuiz = async (
   }
 
   await docRef.set({ questions: updatedQuestions });
+};
+
+export const loadLocalSeenQuestions = async (
+  category: string,
+): Promise<string[]> => {
+  const normalizedCategory = category.trim();
+  if (!normalizedCategory) {
+    throw new Error('INVALID_CATEGORY');
+  }
+
+  const localStore = await readLocalSeenQuestionsStore();
+  return localStore[normalizedCategory] ?? [];
+};
+
+export const saveLocalSeenQuestionsAfterQuiz = async (
+  category: string,
+  newQuestions: string[],
+): Promise<string[]> => {
+  const normalizedCategory = category.trim();
+  if (!normalizedCategory) {
+    throw new Error('INVALID_CATEGORY');
+  }
+
+  const localStore = await readLocalSeenQuestionsStore();
+  const existingQuestions = localStore[normalizedCategory] ?? [];
+  const updatedQuestions = mergeSeenQuestionLists(existingQuestions, newQuestions);
+  localStore[normalizedCategory] = updatedQuestions;
+  await writeLocalSeenQuestionsStore(localStore);
+  return updatedQuestions;
 };
