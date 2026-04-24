@@ -12,8 +12,14 @@ module.exports = {
     filename: 'bundle.js',
   },
   resolve: {
+    conditionNames: ['browser', 'require', 'default'],
     alias: {
       'react-native$': 'react-native-web',
+      'react-native-vision-camera': false,
+      'react-native-vision-camera-worklets': false,
+      'react-native-worklets-core': false,
+      'react-native-qrcode-svg': false,
+      'react-native-svg': false,
     },
     extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
   },
@@ -21,7 +27,7 @@ module.exports = {
     rules: [
       {
         test: /\.[jt]sx?$/,
-        exclude: /node_modules\/(?!react-native-web|@react-native)/,
+        exclude: /node_modules\/(?!react-native-web|@react-native|@firebase|firebase|idb)/,
         use: {
           loader: 'babel-loader',
           options: {
