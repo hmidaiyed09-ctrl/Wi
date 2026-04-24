@@ -1,0 +1,39 @@
+
+Welcome to React Native v0.84
+Starting dev server on http://localhost:8081
+
+
+                        ▒▒▓▓▓▓▒▒
+                     ▒▓▓▓▒▒░░▒▒▓▓▓▒
+                  ▒▓▓▓▓░░░▒▒▒▒░░░▓▓▓▓▒
+                 ▓▓▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▓▓
+                 ▓▓░░░░░▒▓▓▓▓▓▓▒░░░░░▓▓
+                 ▓▓░░▓▓▒░░░▒▒░░░▒▓▒░░▓▓
+                 ▓▓░░▓▓▓▓▓▒▒▒▒▓▓▓▓▒░░▓▓
+                 ▓▓░░▓▓▓▓▓▓▓▓▓▓▓▓▓▒░░▓▓
+                 ▓▓▒░░▒▒▓▓▓▓▓▓▓▓▒░░░▒▓▓
+                  ▒▓▓▓▒░░░▒▓▓▒░░░▒▓▓▓▒
+                     ▒▓▓▓▒░░░░▒▓▓▓▒
+                        ▒▒▓▓▓▓▒▒
+
+
+                Welcome to Metro v0.83.6
+              Fast - Scalable - Integrated
+
+
+ INFO  Dev server ready. Press Ctrl+C to exit.
+ INFO  Key commands available:
+
+   r  - reload app(s)
+   d  - open Dev Menu
+   j  - open DevTools
+
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ░░░░░░░░░░░░░░░░ 0% (0/1)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ▓▓░░░░░░░░░░░░░░ 16% (16/114)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ▓▓▓▓░░░░░░░░░░░░ 27% (142/284)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ▓▓▓▓▓▓▓▓░░░░░░░░ 55% (304/409)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 81% (456/507)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 94% (532/548)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 97% (612/645)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99% (658/659)
+ BUNDLE  ..\Users\Iyed Hmida\Downloads\datawarehouse_projects\Wi\restored_project/index.js 

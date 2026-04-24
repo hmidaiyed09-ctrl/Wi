@@ -48,6 +48,26 @@ const getLoginErrorMessage = (error: unknown): string => {
     return 'Your browser blocked the Google popup. Please allow popups and try again.';
   }
 
+  if (message === 'GOOGLE_SIGN_IN_CANCELLED') {
+    return 'Google sign-in was cancelled.';
+  }
+
+  if (message === 'GOOGLE_PLAY_SERVICES_NOT_AVAILABLE') {
+    return 'Google Play Services is not available or needs an update on this device.';
+  }
+
+  if (message === 'GOOGLE_SIGN_IN_IN_PROGRESS') {
+    return 'Google sign-in is already in progress. Please wait and try again.';
+  }
+
+  if (message === 'GOOGLE_WEB_CLIENT_ID_MISSING') {
+    return 'Google sign-in is not configured yet. Add your Firebase Web Client ID in services/firebaseClient.ts.';
+  }
+
+  if (message === 'GOOGLE_ID_TOKEN_MISSING') {
+    return 'Google sign-in failed to provide a token. Check your Firebase and Google OAuth configuration.';
+  }
+
   if (code === 'auth/network-request-failed') {
     return 'Network error. Please check your connection and try again.';
   }
