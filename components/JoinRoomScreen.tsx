@@ -8,24 +8,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type {
-  RoomJoinResult,
-  RoomState,
-} from '../services/firebaseRooms';
+import type { RoomState } from '../services/firebaseRooms';
 
 type Props = {
   onBack: () => void;
-  onOpenGame: (roomCode: string, localPlayerId: string) => void;
   profileName: string;
-  profileUid: string;
 };
 
 type RoomServiceModule = {
-  joinRoom: (
-    roomCodeInput: string,
-    playerName: string,
-    authUid?: string,
-  ) => Promise<RoomJoinResult>;
+  joinRoom: (roomCodeInput: string, playerName: string) => Promise<RoomState>;
   subscribeToRoom: (
     roomCodeInput: string,
     onChange: (room: RoomState) => void,
@@ -44,48 +35,12 @@ const resolveRoomService = async (): Promise<RoomServiceModule> => {
   return candidate as RoomServiceModule;
 };
 
-const getJoinErrorMessage = (error: unknown): string => {
-  if (!(error instanceof Error)) {
-    return 'Unable to join room right now. Please try again.';
-  }
-
-  const normalizedMessage = error.message.toLowerCase();
-
-  switch (error.message) {
-    case 'INVALID_ROOM_CODE':
-      return 'Please enter a valid 6-digit room code.';
-    case 'ROOM_NOT_FOUND':
-      return 'Room not found. Check the code and try again.';
-    case 'ROOM_FULL':
-      return 'This room is already full.';
-    case 'ROOM_ALREADY_STARTED':
-      return 'This friend game already started.';
-    case 'ROOM_SERVICE_UNAVAILABLE':
-      return 'Room service failed to initialize. Please refresh the app.';
-    default:
-      if (
-        normalizedMessage.includes('permission_denied') ||
-        normalizedMessage.includes('permission denied')
-      ) {
-        return 'Realtime Database denied room access. Please update your RTDB rules in Firebase Console.';
-      }
-      return `Unable to join room right now: ${error.message}`;
-  }
-};
-
-export default function JoinRoomScreen({
-  onBack,
-  onOpenGame,
-  profileName,
-  profileUid,
-}: Props) {
+export default function JoinRoomScreen({ onBack, profileName }: Props) {
   const [roomCode, setRoomCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
   const [joinedRoom, setJoinedRoom] = useState<RoomState | null>(null);
-  const [localPlayerId, setLocalPlayerId] = useState('');
   const unsubscribeRef = useRef<(() => void) | null>(null);
-  const openedGameRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -95,26 +50,14 @@ export default function JoinRoomScreen({
     };
   }, []);
 
-  useEffect(() => {
-    if (!joinedRoom || !localPlayerId || openedGameRef.current) {
-      return;
-    }
-
-    if (joinedRoom.status === 'in_game' || joinedRoom.status === 'completed') {
-      openedGameRef.current = true;
-      onOpenGame(joinedRoom.code, localPlayerId);
-    }
-  }, [joinedRoom, localPlayerId, onOpenGame]);
-
   const handleJoinRoom = async () => {
     setError('');
     setIsJoining(true);
 
     try {
       const roomService = await resolveRoomService();
-      const room = await roomService.joinRoom(roomCode, profileName, profileUid);
+      const room = await roomService.joinRoom(roomCode, profileName);
       setJoinedRoom(room);
-      setLocalPlayerId(room.localPlayerId);
 
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
@@ -122,7 +65,7 @@ export default function JoinRoomScreen({
 
       unsubscribeRef.current = roomService.subscribeToRoom(
         room.code,
-        updatedRoom => {
+        (updatedRoom) => {
           setJoinedRoom(updatedRoom);
           setError('');
         },
@@ -131,7 +74,15 @@ export default function JoinRoomScreen({
         },
       );
     } catch (caughtError) {
-      setError(getJoinErrorMessage(caughtError));
+      if (caughtError instanceof Error && caughtError.message === 'INVALID_ROOM_CODE') {
+        setError('Please enter a valid 6-digit room code.');
+      } else if (caughtError instanceof Error && caughtError.message === 'ROOM_NOT_FOUND') {
+        setError('Room not found. Check the code and try again.');
+      } else if (caughtError instanceof Error && caughtError.message === 'ROOM_SERVICE_UNAVAILABLE') {
+        setError('Room service failed to initialize. Please refresh the app.');
+      } else {
+        setError('Unable to join room right now. Please try again.');
+      }
     } finally {
       setIsJoining(false);
     }
@@ -150,7 +101,7 @@ export default function JoinRoomScreen({
         </Pressable>
 
         <Text style={styles.title}>Join Room</Text>
-        <Text style={styles.subtitle}>Enter the 6-digit code to join your friends</Text>
+        <Text style={styles.subtitle}>Enter the 6-digit code to join your friend</Text>
 
         <Pressable disabled style={styles.scanPlaceholderButton}>
           <Text style={styles.scanPlaceholderButtonText}>Scan with Camera (Coming soon)</Text>
@@ -161,7 +112,7 @@ export default function JoinRoomScreen({
           <TextInput
             style={styles.codeInput}
             value={roomCode}
-            onChangeText={text => {
+            onChangeText={(text) => {
               setRoomCode(text.replace(/\D/g, '').slice(0, 6));
               if (error) {
                 setError('');
@@ -195,32 +146,13 @@ export default function JoinRoomScreen({
           <View style={styles.joinedCard}>
             <Text style={styles.joinedTitle}>Joined: {joinedRoom.roomName}</Text>
             <Text style={styles.joinedCode}>Code: {joinedRoom.code}</Text>
-            <Text style={styles.joinedStatus}>
-              {joinedRoom.status === 'waiting' ? 'Waiting for host to start...' : 'Game is live'}
-            </Text>
-
+            <Text style={styles.joinedStatus}>Status: {joinedRoom.status}</Text>
             <Text style={styles.playersTitle}>Players</Text>
-            <View style={styles.playerList}>
-              {joinedRoom.players.map(player => {
-                const isLocal = player.id === localPlayerId;
-                return (
-                  <View key={player.id} style={styles.playerRow}>
-                    <View style={[styles.playerAvatar, { backgroundColor: player.color }]}>
-                      <Text style={styles.playerAvatarText}>
-                        {player.name.slice(0, 1).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.playerInfo}>
-                      <Text style={styles.playerName}>
-                        {player.name}
-                        {player.isHost ? ' (host)' : ''}
-                      </Text>
-                      <Text style={styles.playerMeta}>{isLocal ? 'You' : player.color}</Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
+            {joinedRoom.players.map((player) => (
+              <Text key={player.id} style={styles.playerLine}>
+                • {player.name}{player.isHost ? ' (host)' : ''}
+              </Text>
+            ))}
           </View>
         ) : null}
       </ScrollView>
@@ -343,44 +275,15 @@ const styles = StyleSheet.create({
   joinedStatus: {
     color: '#8A8A8A',
     marginBottom: 12,
-    fontWeight: '600',
   },
   playersTitle: {
     color: '#999999',
     fontWeight: '700',
     letterSpacing: 1.1,
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  playerList: {
-    gap: 10,
-  },
-  playerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  playerAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playerAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  playerInfo: {
-    flex: 1,
-  },
-  playerName: {
-    color: '#1A1A1A',
-    fontWeight: '700',
-  },
-  playerMeta: {
-    color: '#8A8A8A',
-    fontSize: 12,
-    fontWeight: '600',
+  playerLine: {
+    color: '#444444',
+    marginBottom: 4,
   },
 });

@@ -1,7 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-apply plugin: "com.google.gms.google-services"
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -73,12 +72,8 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-def isNewArchEnabled = (findProperty("newArchEnabled") ?: "false").toBoolean()
-
 android {
-    if (isNewArchEnabled) {
-        ndkVersion rootProject.ext.ndkVersion
-    }
+    ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
@@ -89,11 +84,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        if (isNewArchEnabled) {
-            externalNativeBuild {
-                cmake {
-                    arguments "-DANDROID_STL=c++_shared"
-                }
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
             }
         }
     }
@@ -117,11 +110,11 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
-    if (isNewArchEnabled) {
-        externalNativeBuild {
-            cmake {
-                path "src/main/jni/CMakeLists.txt"
-            }
+    externalNativeBuild {
+        cmake {
+            path "src/main/jni/CMakeLists.txt"
+            // AGP defaults to <module>/.cxx, which is too long under this Windows workspace.
+            buildStagingDirectory "C:/rn-cxx/${rootProject.name}-${project.name}"
         }
     }
 }
@@ -129,8 +122,6 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
-    implementation("com.google.firebase:firebase-auth")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

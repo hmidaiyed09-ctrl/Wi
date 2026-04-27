@@ -1,7 +1,6 @@
 import { Platform } from 'react-native';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import type firebase from 'firebase/compat/app';
-import { auth, firebase as firebaseCompat, firebaseAuthConfig, firestore } from './firebaseClient';
+import { auth, firebase as firebaseCompat, firestore } from './firebaseClient';
 
 export type QuizLanguage = 'ARABIC' | 'ENGLISH';
 
@@ -41,7 +40,6 @@ type QuizHistoryDocument = {
 
 const usersCollection = firestore.collection('users');
 let authPersistenceInitialized = false;
-let nativeGoogleSignInConfigured = false;
 
 export const initializeAuth = async (): Promise<void> => {
   if (authPersistenceInitialized || Platform.OS !== 'web') {
@@ -55,35 +53,6 @@ export const initializeAuth = async (): Promise<void> => {
     await auth.setPersistence(firebaseCompat.auth.Auth.Persistence.SESSION);
     authPersistenceInitialized = true;
   }
-};
-
-const configureNativeGoogleSignIn = (): void => {
-  if (nativeGoogleSignInConfigured) {
-    return;
-  }
-
-  const webClientId = firebaseAuthConfig.googleWebClientId.trim();
-  if (webClientId.length === 0) {
-    throw new Error('GOOGLE_WEB_CLIENT_ID_MISSING');
-  }
-
-  GoogleSignin.configure({
-    webClientId,
-  });
-  nativeGoogleSignInConfigured = true;
-};
-
-const getNativeAuthErrorCode = (error: unknown): string => {
-  if (
-    typeof error === 'object'
-    && error !== null
-    && 'code' in error
-    && typeof (error as { code?: unknown }).code === 'string'
-  ) {
-    return String((error as { code: string }).code);
-  }
-
-  return '';
 };
 
 const getFallbackUsername = (user: firebase.User): string => {
@@ -260,88 +229,33 @@ export const signInWithEmail = async (
 export const signInWithGoogle = async (
   preferredUsername?: string,
 ): Promise<UserProfile> => {
-  if (Platform.OS === 'web') {
-    const provider = new firebaseCompat.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
-    const credential = await auth.signInWithPopup(provider);
-    const user = credential.user;
-    if (!user) {
-      throw new Error('AUTH_USER_MISSING');
-    }
-
-    const normalizedPreferredUsername = preferredUsername?.trim();
-    const profileSnapshot = await usersCollection.doc(user.uid).get();
-    if (!profileSnapshot.exists && !normalizedPreferredUsername) {
-      await auth.signOut();
-      throw new Error('GOOGLE_USERNAME_REQUIRED');
-    }
-
-    return ensureUserProfile(user, {
-      preferredUsername: normalizedPreferredUsername,
-      providerOverride: 'google.com',
-    });
+  if (Platform.OS !== 'web') {
+    throw new Error('GOOGLE_SIGN_IN_WEB_ONLY');
   }
 
-  configureNativeGoogleSignIn();
+  const provider = new firebaseCompat.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
 
-  try {
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-    const signInResponse = await GoogleSignin.signIn();
-    if (signInResponse.type !== 'success') {
-      throw new Error('GOOGLE_SIGN_IN_CANCELLED');
-    }
-
-    const nativeTokens = await GoogleSignin.getTokens();
-    const idToken = signInResponse.data.idToken ?? nativeTokens.idToken;
-    const accessToken = nativeTokens.accessToken;
-    if (!idToken && !accessToken) {
-      throw new Error('GOOGLE_ID_TOKEN_MISSING');
-    }
-
-    const googleCredential = firebaseCompat.auth.GoogleAuthProvider.credential(
-      idToken ?? null,
-      accessToken ?? null,
-    );
-    const credential = await auth.signInWithCredential(googleCredential);
-    const user = credential.user;
-    if (!user) {
-      throw new Error('AUTH_USER_MISSING');
-    }
-
-    const normalizedPreferredUsername = preferredUsername?.trim();
-    const profileSnapshot = await usersCollection.doc(user.uid).get();
-    if (!profileSnapshot.exists && !normalizedPreferredUsername) {
-      await auth.signOut();
-      throw new Error('GOOGLE_USERNAME_REQUIRED');
-    }
-
-    return ensureUserProfile(user, {
-      preferredUsername: normalizedPreferredUsername,
-      providerOverride: 'google.com',
-    });
-  } catch (error) {
-    const errorCode = getNativeAuthErrorCode(error);
-    if (errorCode === statusCodes.SIGN_IN_CANCELLED) {
-      throw new Error('GOOGLE_SIGN_IN_CANCELLED');
-    }
-
-    if (errorCode === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-      throw new Error('GOOGLE_PLAY_SERVICES_NOT_AVAILABLE');
-    }
-
-    if (errorCode === statusCodes.IN_PROGRESS) {
-      throw new Error('GOOGLE_SIGN_IN_IN_PROGRESS');
-    }
-
-    throw error;
+  const credential = await auth.signInWithPopup(provider);
+  const user = credential.user;
+  if (!user) {
+    throw new Error('AUTH_USER_MISSING');
   }
+
+  const normalizedPreferredUsername = preferredUsername?.trim();
+  const profileSnapshot = await usersCollection.doc(user.uid).get();
+  if (!profileSnapshot.exists && !normalizedPreferredUsername) {
+    await auth.signOut();
+    throw new Error('GOOGLE_USERNAME_REQUIRED');
+  }
+
+  return ensureUserProfile(user, {
+    preferredUsername: normalizedPreferredUsername,
+    providerOverride: 'google.com',
+  });
 };
 
 export const signOutUser = async (): Promise<void> => {
-  if (Platform.OS !== 'web' && nativeGoogleSignInConfigured) {
-    await GoogleSignin.signOut();
-  }
   await auth.signOut();
 };
 
