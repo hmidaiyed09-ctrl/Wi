@@ -14,6 +14,15 @@ module.exports = {
   resolve: {
     alias: {
       'react-native$': 'react-native-web',
+      'react-native-qrcode-svg$': path.resolve(
+        __dirname,
+        'web-stubs/react-native-qrcode-svg.js',
+      ),
+      'react-native-svg$': path.resolve(__dirname, 'web-stubs/react-native-svg.js'),
+      'react-native-vision-camera$': path.resolve(
+        __dirname,
+        'web-stubs/vision-camera.js',
+      ),
     },
     extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
   },

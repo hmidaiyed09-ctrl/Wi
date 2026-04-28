@@ -45,7 +45,7 @@ export default function FriendsMenuScreen({ onBack, onCreateRoom, onJoinRoom }: 
             <Text style={styles.cardEmoji}>🔑</Text>
             <Text style={styles.cardTitle}>Join Room</Text>
             <Text style={styles.cardDesc}>
-              Enter a 6-digit code now. Camera scan will be added soon.
+              Enter a 6-digit code or scan the host QR with your camera.
             </Text>
           </Pressable>
         </View>

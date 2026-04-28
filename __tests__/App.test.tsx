@@ -6,6 +6,19 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import App from '../App';
 
+jest.mock('react-native-vision-camera', () => ({
+  Camera: 'Camera',
+  useCameraPermission: () => ({
+    hasPermission: false,
+    canRequestPermission: false,
+    requestPermission: async () => false,
+  }),
+  useObjectOutput: () => ({}),
+  isScannedCode: (object: { value?: unknown }) =>
+    typeof object?.value === 'string',
+}));
+jest.mock('react-native-qrcode-svg', () => 'QRCode');
+
 jest.mock('../services/firebaseRooms', () => ({
   createRoom: jest.fn(async () => ({
     code: '123456',

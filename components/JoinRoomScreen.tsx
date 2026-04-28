@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,15 +9,26 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {
+  Camera,
+  isScannedCode,
+  useCameraPermission,
+  useObjectOutput,
+} from 'react-native-vision-camera';
 import type { RoomState } from '../services/firebaseRooms';
 
 type Props = {
   onBack: () => void;
+  onOpenGame: (roomCode: string, localPlayerId: string) => void;
   profileName: string;
+  profileUid: string;
 };
 
 type RoomServiceModule = {
-  joinRoom: (roomCodeInput: string, playerName: string) => Promise<RoomState>;
+  joinRoom: (
+    roomCodeInput: string,
+    playerName: string,
+  ) => Promise<{ room: RoomState; localPlayerId: string }>;
   subscribeToRoom: (
     roomCodeInput: string,
     onChange: (room: RoomState) => void,
@@ -26,21 +38,47 @@ type RoomServiceModule = {
 
 const resolveRoomService = async (): Promise<RoomServiceModule> => {
   const module = await import('../services/firebaseRooms');
-  const candidate = ((module as { default?: unknown }).default ?? module) as Partial<RoomServiceModule>;
+  const candidate = ((module as { default?: unknown }).default ??
+    module) as Partial<RoomServiceModule>;
 
-  if (typeof candidate.joinRoom !== 'function' || typeof candidate.subscribeToRoom !== 'function') {
+  if (
+    typeof candidate.joinRoom !== 'function' ||
+    typeof candidate.subscribeToRoom !== 'function'
+  ) {
     throw new Error('ROOM_SERVICE_UNAVAILABLE');
   }
 
   return candidate as RoomServiceModule;
 };
 
-export default function JoinRoomScreen({ onBack, profileName }: Props) {
+const extractRoomCode = (rawValue: string): string | null => {
+  const directCode = rawValue.replace(/\D/g, '');
+  if (directCode.length === 6) {
+    return directCode;
+  }
+
+  const embeddedMatch = rawValue.match(/(?:^|[^0-9])(\d{6})(?:[^0-9]|$)/);
+  return embeddedMatch?.[1] ?? null;
+};
+
+export default function JoinRoomScreen({
+  onBack,
+  onOpenGame,
+  profileName,
+  profileUid: _profileUid,
+}: Props) {
   const [roomCode, setRoomCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState('');
   const [joinedRoom, setJoinedRoom] = useState<RoomState | null>(null);
+  const [localPlayerId, setLocalPlayerId] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
+  const [cameraError, setCameraError] = useState('');
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const navigatedRef = useRef(false);
+  const scannedRef = useRef(false);
+  const { hasPermission, canRequestPermission, requestPermission } =
+    useCameraPermission();
 
   useEffect(() => {
     return () => {
@@ -50,22 +88,48 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
     };
   }, []);
 
-  const handleJoinRoom = async () => {
+  // Auto-navigate to FriendQuiz once host starts the game.
+  useEffect(() => {
+    if (
+      joinedRoom &&
+      joinedRoom.status === 'in_game' &&
+      localPlayerId &&
+      !navigatedRef.current
+    ) {
+      navigatedRef.current = true;
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      onOpenGame(joinedRoom.code, localPlayerId);
+    }
+  }, [joinedRoom, localPlayerId, onOpenGame]);
+
+  const handleJoinRoom = async (providedCode?: string) => {
+    const codeToJoin = (providedCode ?? roomCode).replace(/\D/g, '').slice(0, 6);
+    if (codeToJoin.length !== 6) {
+      setError('Please enter a valid 6-digit room code.');
+      return;
+    }
+
     setError('');
     setIsJoining(true);
 
     try {
       const roomService = await resolveRoomService();
-      const room = await roomService.joinRoom(roomCode, profileName);
-      setJoinedRoom(room);
+      const result = await roomService.joinRoom(codeToJoin, profileName);
+      setJoinedRoom(result.room);
+      setRoomCode(result.room.code);
+      setLocalPlayerId(result.localPlayerId);
+      setShowScanner(false);
 
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
       }
 
       unsubscribeRef.current = roomService.subscribeToRoom(
-        room.code,
-        (updatedRoom) => {
+        result.room.code,
+        updatedRoom => {
           setJoinedRoom(updatedRoom);
           setError('');
         },
@@ -74,11 +138,20 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
         },
       );
     } catch (caughtError) {
-      if (caughtError instanceof Error && caughtError.message === 'INVALID_ROOM_CODE') {
+      if (
+        caughtError instanceof Error &&
+        caughtError.message === 'INVALID_ROOM_CODE'
+      ) {
         setError('Please enter a valid 6-digit room code.');
-      } else if (caughtError instanceof Error && caughtError.message === 'ROOM_NOT_FOUND') {
+      } else if (
+        caughtError instanceof Error &&
+        caughtError.message === 'ROOM_NOT_FOUND'
+      ) {
         setError('Room not found. Check the code and try again.');
-      } else if (caughtError instanceof Error && caughtError.message === 'ROOM_SERVICE_UNAVAILABLE') {
+      } else if (
+        caughtError instanceof Error &&
+        caughtError.message === 'ROOM_SERVICE_UNAVAILABLE'
+      ) {
         setError('Room service failed to initialize. Please refresh the app.');
       } else {
         setError('Unable to join room right now. Please try again.');
@@ -88,7 +161,53 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
     }
   };
 
-  const canSubmit = roomCode.length === 6 && !isJoining;
+  const objectOutput = useObjectOutput({
+    types: ['qr'],
+    onObjectsScanned: objects => {
+      if (scannedRef.current || isJoining || joinedRoom) {
+        return;
+      }
+
+      for (const object of objects) {
+        if (!isScannedCode(object) || !object.value) {
+          continue;
+        }
+        const scannedCode = extractRoomCode(object.value);
+        if (!scannedCode) {
+          continue;
+        }
+
+        scannedRef.current = true;
+        setShowScanner(false);
+        setRoomCode(scannedCode);
+        setError('');
+        handleJoinRoom(scannedCode);
+        return;
+      }
+    },
+  });
+
+  const handleOpenScanner = async () => {
+    setError('');
+    setCameraError('');
+
+    if (!hasPermission) {
+      if (!canRequestPermission) {
+        setError('Camera permission is blocked. Enable it in settings.');
+        return;
+      }
+      const granted = await requestPermission();
+      if (!granted) {
+        setError('Camera permission is required to scan QR codes.');
+        return;
+      }
+    }
+
+    scannedRef.current = false;
+    setShowScanner(true);
+  };
+
+  const canSubmit = roomCode.length === 6 && !isJoining && !joinedRoom;
 
   return (
     <View style={styles.container}>
@@ -101,44 +220,47 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
         </Pressable>
 
         <Text style={styles.title}>Join Room</Text>
-        <Text style={styles.subtitle}>Enter the 6-digit code to join your friend</Text>
+        <Text style={styles.subtitle}>
+          Enter the 6-digit code to join your friend
+        </Text>
 
-        <Pressable disabled style={styles.scanPlaceholderButton}>
-          <Text style={styles.scanPlaceholderButtonText}>Scan with Camera (Coming soon)</Text>
+        <Pressable onPress={handleOpenScanner} style={styles.scanButton}>
+          <Text style={styles.scanButtonText}>Scan with Camera</Text>
         </Pressable>
 
-        <View style={styles.codeCard}>
-          <Text style={styles.codeLabel}>ROOM CODE</Text>
-          <TextInput
-            style={styles.codeInput}
-            value={roomCode}
-            onChangeText={(text) => {
-              setRoomCode(text.replace(/\D/g, '').slice(0, 6));
-              if (error) {
-                setError('');
-              }
-            }}
-            keyboardType="number-pad"
-            maxLength={6}
-            placeholder="123456"
-            placeholderTextColor="#A1A1A1"
-          />
-        </View>
+        {!joinedRoom ? (
+          <>
+            <View style={styles.codeCard}>
+              <Text style={styles.codeLabel}>ROOM CODE</Text>
+              <TextInput
+                style={styles.codeInput}
+                value={roomCode}
+                onChangeText={text => {
+                  setRoomCode(text.replace(/\D/g, '').slice(0, 6));
+                  if (error) {
+                    setError('');
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="123456"
+                placeholderTextColor="#A1A1A1"
+              />
+            </View>
 
-        <Pressable
-          onPress={handleJoinRoom}
-          disabled={!canSubmit}
-          style={[
-            styles.joinButton,
-            !canSubmit && styles.joinButtonDisabled,
-          ]}
-        >
-          {isJoining ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.joinButtonText}>Join Room</Text>
-          )}
-        </Pressable>
+            <Pressable
+              onPress={handleJoinRoom}
+              disabled={!canSubmit}
+              style={[styles.joinButton, !canSubmit && styles.joinButtonDisabled]}
+            >
+              {isJoining ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.joinButtonText}>Join Room</Text>
+              )}
+            </Pressable>
+          </>
+        ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -146,16 +268,62 @@ export default function JoinRoomScreen({ onBack, profileName }: Props) {
           <View style={styles.joinedCard}>
             <Text style={styles.joinedTitle}>Joined: {joinedRoom.roomName}</Text>
             <Text style={styles.joinedCode}>Code: {joinedRoom.code}</Text>
-            <Text style={styles.joinedStatus}>Status: {joinedRoom.status}</Text>
-            <Text style={styles.playersTitle}>Players</Text>
-            {joinedRoom.players.map((player) => (
+            <Text style={styles.joinedStatus}>
+              {joinedRoom.status === 'in_game'
+                ? 'Game starting…'
+                : joinedRoom.status === 'finished'
+                ? 'Game ended'
+                : 'Waiting for the host to start the game…'}
+            </Text>
+            <Text style={styles.playersTitle}>
+              Players ({joinedRoom.players.length})
+            </Text>
+            {joinedRoom.players.map(player => (
               <Text key={player.id} style={styles.playerLine}>
-                • {player.name}{player.isHost ? ' (host)' : ''}
+                • {player.name}
+                {player.isHost ? ' (host)' : ''}
+                {player.id === localPlayerId ? ' (you)' : ''}
               </Text>
             ))}
+            {joinedRoom.status === 'waiting' ? (
+              <ActivityIndicator
+                style={styles.waitingSpinner}
+                color="#FF8C00"
+              />
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
+
+      <Modal visible={showScanner} transparent animationType="slide">
+        <View style={styles.scannerOverlay}>
+          <View style={styles.scannerCard}>
+            <Text style={styles.scannerTitle}>Scan Invite QR</Text>
+            <View style={styles.cameraFrame}>
+              <Camera
+                style={styles.cameraPreview}
+                device="back"
+                isActive={showScanner}
+                outputs={[objectOutput]}
+                onError={caughtError =>
+                  setCameraError(caughtError.message || 'Camera failed to start.')
+                }
+              />
+              <View pointerEvents="none" style={styles.scanGuide} />
+            </View>
+            <Text style={styles.scannerHint}>
+              Align the room QR code inside the frame
+            </Text>
+            {cameraError ? <Text style={styles.errorText}>{cameraError}</Text> : null}
+            <Pressable
+              style={styles.closeScannerButton}
+              onPress={() => setShowScanner(false)}
+            >
+              <Text style={styles.closeScannerButtonText}>Close Scanner</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -192,7 +360,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 26,
   },
-  scanPlaceholderButton: {
+  scanButton: {
     backgroundColor: '#FFF5E8',
     borderWidth: 1,
     borderColor: '#FFD8AA',
@@ -201,7 +369,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 18,
   },
-  scanPlaceholderButtonText: {
+  scanButtonText: {
     color: '#FF8C00',
     fontWeight: '700',
   },
@@ -285,5 +453,67 @@ const styles = StyleSheet.create({
   playerLine: {
     color: '#444444',
     marginBottom: 4,
+  },
+  waitingSpinner: {
+    marginTop: 16,
+  },
+  scannerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+  },
+  scannerCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
+  scannerTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  cameraFrame: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    height: 340,
+    backgroundColor: '#111111',
+    position: 'relative',
+  },
+  cameraPreview: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  scanGuide: {
+    position: 'absolute',
+    left: '16%',
+    right: '16%',
+    top: '28%',
+    bottom: '28%',
+    borderWidth: 2,
+    borderColor: '#FF8C00',
+    borderRadius: 16,
+    backgroundColor: 'transparent',
+  },
+  scannerHint: {
+    marginTop: 10,
+    textAlign: 'center',
+    color: '#7D7D7D',
+    fontSize: 12,
+  },
+  closeScannerButton: {
+    marginTop: 14,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+  },
+  closeScannerButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });
