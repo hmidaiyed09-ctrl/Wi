@@ -1013,6 +1013,9 @@ export default function App() {
       setTimeLeft(prev => prev - 1);
     }, 1000);
     return () => clearInterval(interval);
+    // finishQuiz is intentionally omitted: it depends on setState'd values
+    // captured each render, and including it would trigger the timer to reset.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, screen, isReviewMode, currentQuestionIndex, quiz.length]);
 
   const finishQuiz = () => {

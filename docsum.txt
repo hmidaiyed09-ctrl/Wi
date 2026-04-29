@@ -1,0 +1,81 @@
+WI APPLICATION - DOCUMENTATION SUMMARY
+======================================
+
+1) Introduction
+Wi is a cross-platform quiz application (Web + Mobile) built with React Native.
+It uses AI-generated questions and Firebase backend services to deliver a personalized quiz experience.
+Users can play solo quizzes, track progress over time, and also join multiplayer friend rooms.
+
+
+2) Core Purpose
+- Let users generate quizzes by topic/category and difficulty.
+- Support account-based experience with persistent data.
+- Show real performance statistics from actual quiz history.
+- Enable "Play with Friends" room-based multiplayer flow.
+
+
+3) Key Features
+- AI Quiz Generation
+  - Generates quiz questions dynamically from user-selected category/topic.
+  - Supports predefined categories and custom topics.
+  - Handles JSON-based parsing for quiz payloads.
+
+- Authentication & User Profiles (Firebase Auth + Firestore)
+  - Email/password sign up and login.
+  - Google sign-in support.
+  - User profile persistence (username, email, provider, preferred language).
+  - Session persistence with fallback behavior if cloud sync fails.
+
+- Quiz Configuration ("Game Room" builder)
+  - Number of questions.
+  - Difficulty selection (Easy / Medium / Hard).
+  - Category selection: Entertainment, Sports, General Knowledge, Science, History, Custom.
+  - Language preference support.
+
+- Progress Tracking & Statistics
+  - Stores quiz history by user.
+  - Displays total quizzes, perfect scores, and win rate.
+  - Category-based performance view.
+  - Recent games activity panels.
+
+- Friends Mode (Firebase Rooms)
+  - Create room with generated room code.
+  - Join room by code.
+  - Host waiting lobby and connected players list.
+  - Start game flow for multiplayer session.
+
+
+4) Main Screens / Modules
+- Auth: LoginScreen, SignUpScreen
+- Main navigation: HomeScreen, DashboardScreen, SettingsScreen
+- Solo quiz flow: Builder + Quiz + Result flow in App.tsx
+- Friends flow: FriendsMenuScreen, CreateRoomScreen, JoinRoomScreen, FriendQuizScreen
+- Shared UI: TabIcons, BuilderCategoryIcons
+
+
+5) Technology Stack
+- Frontend: React + React Native + TypeScript
+- Web support: react-native-web + webpack-dev-server
+- Backend services: Firebase (Auth + Firestore)
+- Local persistence/cache: AsyncStorage
+- Testing: Jest
+
+
+6) Data Highlights
+- User document: users/{uid}
+- Quiz history collection: users/{uid}/quizHistory/{gameId}
+- Room-based friend play data stored in Firestore room documents
+
+
+7) Run Commands
+- npm run web      -> start web app with webpack dev server
+- npm run android  -> run Android app
+- npm run ios      -> run iOS app
+- npm run test     -> run Jest tests
+- npm run lint     -> run ESLint
+
+
+8) Notes
+- Firebase project configuration is required for authentication and database features.
+- Google sign-in requires proper provider and authorized domain setup in Firebase.
+- The app includes graceful fallback messages when some cloud sync operations fail.

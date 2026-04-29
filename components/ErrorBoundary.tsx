@@ -1,4 +1,8 @@
-import React, { Component } from 'react';
+import React, { Component, type ReactNode } from 'react';
+
+interface ErrorBoundaryProps {
+  children?: ReactNode;
+}
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -6,8 +10,11 @@ interface ErrorBoundaryState {
   errorInfo: React.ErrorInfo | null;
 }
 
-export default class ErrorBoundary extends Component<{}, ErrorBoundaryState> {
-  constructor(props: {}) {
+export default class ErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
   }
@@ -60,7 +67,9 @@ export default class ErrorBoundary extends Component<{}, ErrorBoundaryState> {
             )}
           </div>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() =>
+              (globalThis as { location?: { reload(): void } }).location?.reload()
+            }
             style={{
               backgroundColor: '#007bff',
               color: 'white',

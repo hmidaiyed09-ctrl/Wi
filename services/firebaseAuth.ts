@@ -388,11 +388,14 @@ const mergeSeenQuestionLists = (
 let nativeSeenStoragePromise: Promise<LocalSeenStorage> | null = null;
 
 const createWebSeenStorage = (): LocalSeenStorage => {
-  if (typeof window === 'undefined') {
+  const win = (globalThis as {
+    localStorage?: { getItem(key: string): string | null; setItem(key: string, value: string): void };
+  });
+  if (!win.localStorage) {
     throw new Error('WEB_STORAGE_UNAVAILABLE');
   }
 
-  const webStorage = window.localStorage;
+  const webStorage = win.localStorage;
   return {
     getItem: async key => webStorage.getItem(key),
     setItem: async (key, value) => {

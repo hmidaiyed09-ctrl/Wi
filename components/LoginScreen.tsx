@@ -416,12 +416,16 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderWidth: 0,
     backgroundColor: 'transparent',
-    outlineStyle: 'none',
-    outlineWidth: 0,
-    outlineColor: 'transparent',
     fontSize: 16,
     fontWeight: '600',
     color: '#3C3C3C',
+    // Web-only: remove the default focus outline. Cast to any because RN's
+    // TextStyle doesn't include CSS outline properties.
+    ...({
+      outlineStyle: 'none',
+      outlineWidth: 0,
+      outlineColor: 'transparent',
+    } as object),
   },
   lockIcon: {
     width: 14,

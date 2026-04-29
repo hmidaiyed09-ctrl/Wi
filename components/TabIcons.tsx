@@ -8,6 +8,7 @@ import { View } from 'react-native';
 type IconProps = {
   color: string;
   size?: number;
+  accentColor?: string;
 };
 
 /* ─── Home Icon ─────────────────────────────────────────────────── */
